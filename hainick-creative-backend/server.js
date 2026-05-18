@@ -780,6 +780,6 @@ app.delete("/api/delete-contacts", (req, res) => {
 });
 
 
-app.listen(3000, () => {
-  console.log("🚀 Server berjalan di http://localhost:3000");
+app.listen(8000, () => {
+  console.log("🚀 Server berjalan di http://localhost:8000");
 });
