@@ -1,14 +1,22 @@
-// TODO: Replace dummyData with API call from backend
-const dummyData = {
-  headline: "Capturing Dreams,\nCreating Stars",
-  subheading:
-    "Agency that provide professional talents and thousands of creator for campaign brand and event",
-  heroImage:
-    "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=1400&q=90",
-};
+import { useState, useEffect } from "react";
+
+const FALLBACK_IMG =
+  "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=1400&q=90";
 
 const HomeSection = () => {
-  const d = dummyData;
+  const [heroImage, setHeroImage] = useState(FALLBACK_IMG);
+
+  useEffect(() => {
+    fetch("http://localhost:8000/api/hainick-assets")
+      .then((res) => res.json())
+      .then((data) => {
+        const hero = data.find((item) => item.image_type === "hero_banner");
+        if (hero?.image_url) {
+          setHeroImage(`http://localhost:8000${hero.image_url}`);
+        }
+      })
+      .catch((err) => console.error("Gagal memuat hero banner:", err));
+  }, []);
 
   return (
     <>
@@ -24,7 +32,6 @@ const HomeSection = () => {
           to   { opacity: 1; transform: scale(1); }
         }
 
-        /* ── Hero card ── */
         .hero-card {
           position: relative;
           width: 100%;
@@ -36,7 +43,6 @@ const HomeSection = () => {
           animation-delay: 0.3s;
         }
 
-        /* ── Hero image ── */
         .hero-img {
           width: 100%;
           height: 520px;
@@ -45,7 +51,6 @@ const HomeSection = () => {
           display: block;
         }
 
-        /* ── Gradient overlay ── */
         .hero-overlay {
           position: absolute;
           top: 0; left: 0; right: 0; bottom: 0;
@@ -58,7 +63,6 @@ const HomeSection = () => {
           );
         }
 
-        /* ── Text block ── */
         .hero-text {
           position: absolute;
           top: 0; left: 0; right: 0;
@@ -67,19 +71,6 @@ const HomeSection = () => {
           flex-direction: column;
           align-items: center;
           gap: 1rem;
-        }
-
-        .hero-headline {
-          font-family: 'Plus Jakarta Sans', sans-serif;
-          font-size: clamp(2rem, 5.5vw, 4rem);
-          font-weight: 800;
-          color: #0a0a0a;
-          line-height: 1.1;
-          letter-spacing: -0.03em;
-          text-align: center;
-          white-space: pre-line;
-          animation: fadeUp 0.7s ease both;
-          animation-delay: 0.55s;
         }
 
         .hero-sub {
@@ -94,38 +85,17 @@ const HomeSection = () => {
           animation-delay: 0.72s;
         }
 
-        /* ── Tablet ── */
         @media (max-width: 768px) {
-          .hero-img {
-            height: 400px;
-            object-position: center top;
-          }
-          .hero-text {
-            padding: 2rem 1rem 0;
-            gap: 0.75rem;
-          }
-          .hero-sub {
-            font-size: 0.9rem;
-            max-width: 320px;
-          }
+          .hero-img { height: 400px; object-position: center top; }
+          .hero-text { padding: 2rem 1rem 0; gap: 0.75rem; }
+          .hero-sub  { font-size: 0.9rem; max-width: 320px; }
         }
 
-        /* ── Mobile ── */
         @media (max-width: 480px) {
-          .hero-card {
-            border-radius: 14px;
-          }
-          .hero-img {
-            height: 320px;
-          }
-          .hero-text {
-            padding: 1.4rem 0.75rem 0;
-            gap: 0.6rem;
-          }
-          .hero-sub {
-            font-size: 0.82rem;
-            max-width: 260px;
-          }
+          .hero-card { border-radius: 14px; }
+          .hero-img  { height: 320px; }
+          .hero-text { padding: 1.4rem 0.75rem 0; gap: 0.6rem; }
+          .hero-sub  { font-size: 0.82rem; max-width: 260px; }
         }
       `}</style>
 
@@ -138,22 +108,17 @@ const HomeSection = () => {
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "flex-start",
-          padding: "80px 1rem -3",
+          padding: "80px 1rem 0",
         }}
       >
         <div className="hero-card">
-          {/* TODO: ganti src dengan URL gambar dari backend */}
           <img
             className="hero-img"
-            src={d.heroImage}
+            src={heroImage}
             alt="Hainick Creative Team"
           />
           <div className="hero-overlay" />
-          <div className="hero-text">
-            {/* TODO: headline & subheading dari backend */}
-            <h1 className="hero-headline">{d.headline}</h1>
-            <p className="hero-sub">{d.subheading}</p>
-          </div>
+          <div className="hero-text"></div>
         </div>
       </section>
     </>

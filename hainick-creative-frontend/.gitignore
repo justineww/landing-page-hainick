@@ -3,6 +3,7 @@
 node_modules/
 # Mengabaikan semua node_modules yang ada di dalam sub-folder (backend & frontend)
 **/node_modules/
+**/.sql/
 .pnp
 .pnp.js
 

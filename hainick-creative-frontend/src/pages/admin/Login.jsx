@@ -21,7 +21,7 @@ const Login = () => {
     setLoading(true);
     try {
       const res = await fetch(
-        `http://localhost:3000/api/login?username=${encodeURIComponent(form.username)}&password=${encodeURIComponent(form.password)}`,
+        `http://localhost:8000/api/login?username=${encodeURIComponent(form.username)}&password=${encodeURIComponent(form.password)}`,
       );
       const data = await res.json();
       if (res.ok) {
