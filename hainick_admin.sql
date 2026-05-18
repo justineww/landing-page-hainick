@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: May 09, 2026 at 07:28 PM
+-- Generation Time: May 18, 2026 at 04:09 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -51,12 +51,16 @@ CREATE TABLE `creators` (
   `roles` set('Actor','Host','MC','Content Creator','Model','Momfluencer','test') NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+-- --------------------------------------------------------
+
 --
--- Dumping data for table `creators`
+-- Table structure for table `login`
 --
 
-INSERT INTO `creators` (`id`, `profile_image`, `name`, `followers_ig`, `followers_tiktok`, `followers_x`, `roles`) VALUES
-(1, '/uploads/1778345952170.jpeg', 'Akbarry Noor', 79000, 60000, 11000, 'Actor,Host,MC,Content Creator,Model');
+CREATE TABLE `login` (
+  `username` varchar(255) NOT NULL,
+  `password` varchar(255) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
@@ -70,13 +74,6 @@ CREATE TABLE `testimonials` (
   `testimonial` text NOT NULL,
   `name` varchar(255) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Dumping data for table `testimonials`
---
-
-INSERT INTO `testimonials` (`id`, `profile_image`, `testimonial`, `name`) VALUES
-(1, '/uploads/1778346668322.jpeg', '\"Aku tahu hainick di awal aku mulai\r\nmenjadi konten kreator. Dan hainick\r\nsalah satu agency yang benar2 tulus\r\nmembantu KOL nya untuk menjadi\r\nlebih baik dan berkualitas. Sebuah\r\ngrup dimana aku tidak perlu pusing\r\nbersaing dengan kol2 suntik yang\r\nmerajalela hehe... semoga kedepannya\r\nsemakin banyak job dengan budget\r\nyang lebih besar ya kak^^.\"', 'Wiendy Nathalia');
 
 -- --------------------------------------------------------
 

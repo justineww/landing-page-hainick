@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 
 const Login = () => {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ email: "", password: "" });
+  const [form, setForm] = useState({ username: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPass, setShowPass] = useState(false);
@@ -14,20 +14,26 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    if (!form.email || !form.password) {
-      setError("Email dan password wajib diisi.");
+    if (!form.username || !form.password) {
+      setError("Username dan password wajib diisi.");
       return;
     }
     setLoading(true);
-    // TODO: ganti dengan API call ke backend
-    setTimeout(() => {
-      setLoading(false);
-      if (form.email === "admin@hainick.com" && form.password === "admin123") {
+    try {
+      const res = await fetch(
+        `http://localhost:3000/api/login?username=${encodeURIComponent(form.username)}&password=${encodeURIComponent(form.password)}`,
+      );
+      const data = await res.json();
+      if (res.ok) {
         navigate("/admin");
       } else {
-        setError("Email atau password salah.");
+        setError(data.error || "Login gagal.");
       }
-    }, 900);
+    } catch {
+      setError("Tidak dapat terhubung ke server.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -158,20 +164,20 @@ const Login = () => {
           </p>
 
           <form onSubmit={handleSubmit} noValidate>
-            {/* Email */}
-            <label className="login-label" htmlFor="email">
-              Email
+            {/* Username */}
+            <label className="login-label" htmlFor="username">
+              Username
             </label>
             <div className="login-input-wrap">
               <input
-                id="email"
-                name="email"
-                type="email"
+                id="username"
+                name="username"
+                type="text"
                 className="login-input"
-                placeholder="admin@hainick.com"
-                value={form.email}
+                placeholder="admin"
+                value={form.username}
                 onChange={handleChange}
-                autoComplete="email"
+                autoComplete="username"
               />
             </div>
 
