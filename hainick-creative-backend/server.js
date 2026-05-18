@@ -69,6 +69,7 @@ app.get("/api/login", (req, res) => {
 
 
 
+
 // Load Functions
 app.get("/api/creators", (req, res) => {
   const sql = 'SELECT * FROM creators';
@@ -124,6 +125,7 @@ app.get("/api/contacts", (req, res) => {
     res.status(200).json(result);
   });
 });
+
 
 
 
@@ -322,6 +324,7 @@ app.post("/api/create-testimonials", upload.single("image"), (req, res) => {
     });
   });
 });
+
 
 
 
@@ -698,6 +701,7 @@ app.put("/api/update-contacts", (req, res) => {
     });
   }
 });
+
 
 
 
