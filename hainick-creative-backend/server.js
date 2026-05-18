@@ -44,6 +44,28 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 
+// Login Function
+app.get("/api/login", (req, res) => {
+  const username = req.query.username;
+  const password = req.query.password;
+
+  const sql = "SELECT * FROM login WHERE username = ? AND password = ?";
+  db.query(sql, [username, password], (err, result) => {
+    if (err) {
+      console.error("❌ Error fetching login data:", err);
+      return res.status(500).json({ error: "Gagal mengambil data login" });
+    }
+
+    if (result.length === 0) {
+      return res.status(401).json({ error: "Username atau password salah!" });
+    } else{
+      return res.status(200).json({ message: "Login berhasil!" });
+    }
+  })
+});
+
+
+
 
 
 
@@ -103,6 +125,7 @@ app.get("/api/contacts", (req, res) => {
     res.status(200).json(result);
   });
 });
+
 
 
 
@@ -301,6 +324,7 @@ app.post("/api/create-testimonials", upload.single("image"), (req, res) => {
     });
   });
 });
+
 
 
 
@@ -677,6 +701,7 @@ app.put("/api/update-contacts", (req, res) => {
     });
   }
 });
+
 
 
 
