@@ -1,24 +1,47 @@
 import React from "react";
-import Header from "../../components/Header"; // Sesuaikan jika lokasi Header berbeda
+import Header from "../../components/Header";
+import Footer from "../../components/Footer";
+import HomeSection from "./section/HomeSection";
+import AboutSection from "./section/AboutSection";
+import TalentSection from "./section/TalentSection";
+import ServiceSection from "./section/ServiceSection";
+import PricelistSection from "./section/PricelistSection";
+import ActivitySection from "./section/ActivitySection";
+import TestimonySection from "./section/TestimonySection";
+import ContactSection from "./section/ContactSection";
+
+// Nanti uncomment setelah section dibuat:
+
+// import CreatorSection from "./section/CreatorSection";
 
 const LandingPage = () => {
   return (
     <div
-      style={{ backgroundColor: "#0f172a", minHeight: "100vh", color: "white" }}
+      style={{
+        backgroundColor: "#ffffff",
+        minHeight: "100vh",
+        color: "#0a0a0a",
+      }}
     >
       <Header />
-      <section
+      <main
         style={{
           display: "flex",
           flexDirection: "column",
-          justifyContent: "center",
-          alignItems: "center",
-          height: "100vh",
+          gap: "0px", // ← atur jarak antar section di sini
         }}
       >
-        <h1 style={{ fontSize: "3rem" }}>Hainick Creative</h1>
-        <p style={{ color: "#94a3b8" }}>Landing page is under construction.</p>
-      </section>
+        <HomeSection />
+        <AboutSection />
+        <TalentSection />
+        {/* <CreatorSection /> */}
+        <ServiceSection />
+        <PricelistSection />
+        <ActivitySection />
+        <TestimonySection />
+        <ContactSection />
+      </main>
+      <Footer />
     </div>
   );
 };
