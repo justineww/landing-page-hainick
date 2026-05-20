@@ -1,153 +1,137 @@
-// TODO: Replace DUMMY_TALENTS with API call from backend
+import { useState, useEffect } from "react";
+
+const BASE_URL = "http://localhost:8000";
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 const IGIcon = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
     <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
   </svg>
 );
 
 const TikTokIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
     <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.17 8.17 0 004.77 1.52V6.75a4.85 4.85 0 01-1-.06z" />
   </svg>
 );
 
 const XIcon = () => (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
     <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.747l7.73-8.835L1.254 2.25H8.08l4.253 5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
   </svg>
 );
 
-const YoutubeIcon = () => (
-  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
-    <path d="M23.498 6.186a3.016 3.016 0 00-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 00.502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 002.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 002.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-  </svg>
-);
-
-// ── Constants ─────────────────────────────────────────────────────────────────
-const SOCIAL_OPTIONS = [
-  { key: "instagram", label: "Instagram", icon: <IGIcon /> },
-  { key: "tiktok", label: "TikTok", icon: <TikTokIcon /> },
-  { key: "x", label: "X", icon: <XIcon /> },
-  { key: "youtube", label: "YouTube", icon: <YoutubeIcon /> },
-];
-
+// ── Helpers ───────────────────────────────────────────────────────────────────
 const formatFollowers = (n) => {
   const num = parseInt(n, 10);
-  if (isNaN(num)) return n;
-  if (num >= 1000000)
-    return (num / 1000000).toFixed(num % 1000000 === 0 ? 0 : 1) + "M";
-  if (num >= 1000) return Math.round(num / 1000) + "K";
+  if (isNaN(num) || num === 0) return null;
+  if (num >= 1_000_000) return (num / 1_000_000).toFixed(1) + "M";
+  if (num >= 1_000) return Math.round(num / 1_000) + "K";
   return String(num);
 };
 
-// ── Dummy Data (TODO: ganti dengan fetch API backend) ─────────────────────────
-const DUMMY_TALENTS = [
-  {
-    id: 1,
-    name: "AKBARRY NOOR",
-    photo:
-      "https://images.unsplash.com/photo-1552058544-f2b08422138a?w=400&q=80",
-    categories: ["Actor", "Host", "MC", "Content Creator"],
-    socials: {
-      instagram: { url: "https://instagram.com/", followers: "79000" },
-      tiktok: { url: "https://tiktok.com/", followers: "60000" },
-      x: { url: "https://x.com/", followers: "11000" },
-    },
-  },
-  {
-    id: 2,
-    name: "SYAHFIRA ANGELA NURHALIZA",
-    photo:
-      "https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=400&q=80",
-    categories: ["Actor", "Host", "MC", "Content Creator"],
-    socials: {
-      instagram: { url: "https://instagram.com/", followers: "121000" },
-      tiktok: { url: "https://tiktok.com/", followers: "30000" },
-      x: { url: "https://x.com/", followers: "17000" },
-    },
-  },
-  {
-    id: 3,
-    name: "ANNISA HERTAMI",
-    photo:
-      "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=400&q=80",
-    categories: ["Host", "MC", "Content Creator", "Model"],
-    socials: {
-      instagram: { url: "https://instagram.com/", followers: "11000" },
-    },
-  },
-  {
-    id: 4,
-    name: "ARIELLA CALISTA",
-    photo:
-      "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=400&q=80",
-    categories: ["Host", "Content Creator", "Model"],
-    socials: {
-      instagram: { url: "https://instagram.com/", followers: "199000" },
-      tiktok: { url: "https://tiktok.com/", followers: "414000" },
-      x: { url: "https://x.com/", followers: "208000" },
-    },
-  },
-  {
-    id: 5,
-    name: "AYASTROPHILE",
-    photo:
-      "https://images.unsplash.com/photo-1488716820095-cbe80883c496?w=400&q=80",
-    categories: ["Actor", "Host", "Content Creator", "Model"],
-    socials: {
-      instagram: { url: "https://instagram.com/", followers: "74000" },
-      tiktok: { url: "https://tiktok.com/", followers: "136000" },
-      x: { url: "https://x.com/", followers: "152000" },
-    },
-  },
-  {
-    id: 6,
-    name: "DEVI KINAL PUTRI",
-    photo:
-      "https://images.unsplash.com/photo-1492106087820-71f1a00d2b11?w=400&q=80",
-    categories: ["Actor", "Host", "Content Creator", "Model", "Influencer"],
-    socials: {
-      instagram: { url: "https://instagram.com/", followers: "286000" },
-      tiktok: { url: "https://tiktok.com/", followers: "61000" },
-      x: { url: "https://x.com/", followers: "669000" },
-    },
-  },
+// ── Mapping: API response → TalentSection format ──────────────────────────────
+// Menangani dua kemungkinan nama field: followers_ig DAN followers_instagram
+const mapCreatorToTalent = (creator) => {
+  // Debug: uncomment baris ini jika card masih tidak muncul
+  // console.log("Creator fields:", Object.keys(creator), creator);
+
+  const igFollowers = creator.followers_instagram ?? creator.followers_ig ?? 0;
+  const ttFollowers = creator.followers_tiktok ?? 0;
+  const xFollowers = creator.followers_x ?? 0;
+
+  const socials = {};
+
+  if (igFollowers && igFollowers !== "0") {
+    socials.instagram = {
+      url: creator.url_instagram || "https://instagram.com/",
+      followers: String(igFollowers),
+    };
+  }
+  if (ttFollowers && ttFollowers !== "0") {
+    socials.tiktok = {
+      url: creator.url_tiktok || "https://tiktok.com/",
+      followers: String(ttFollowers),
+    };
+  }
+  if (xFollowers && xFollowers !== "0") {
+    socials.x = {
+      url: creator.url_x || "https://x.com/",
+      followers: String(xFollowers),
+    };
+  }
+
+  return {
+    id: creator.id,
+    name: creator.name,
+    photo: creator.profile_image ? `${BASE_URL}${creator.profile_image}` : null,
+    categories: creator.roles
+      ? creator.roles
+          .split(",")
+          .map((r) => r.trim())
+          .filter(Boolean)
+      : [],
+    socials,
+  };
+};
+
+// ── Social config ─────────────────────────────────────────────────────────────
+const SOCIAL_CONFIG = [
+  { key: "instagram", icon: <IGIcon /> },
+  { key: "tiktok", icon: <TikTokIcon /> },
+  { key: "x", icon: <XIcon /> },
 ];
 
 // ── TalentCard ─────────────────────────────────────────────────────────────────
-function TalentCard({ talent }) {
+function TalentCard({ talent, index }) {
+  const [imgError, setImgError] = useState(false);
+  const showFallback = !talent.photo || imgError;
+
   return (
-    <div className="tc-card">
+    <div className="tc-card" style={{ animationDelay: `${index * 60}ms` }}>
+      {/* Foto */}
       <div className="tc-photo-wrap">
-        <img src={talent.photo} alt={talent.name} className="tc-photo" />
+        {showFallback ? (
+          <div className="tc-photo-fallback">
+            <span>{talent.name?.[0]?.toUpperCase() || "?"}</span>
+          </div>
+        ) : (
+          <img
+            src={talent.photo}
+            alt={talent.name}
+            className="tc-photo"
+            onError={() => setImgError(true)}
+          />
+        )}
       </div>
+
+      {/* Info */}
       <div className="tc-body">
         <h3 className="tc-name">{talent.name}</h3>
 
+        {/* Socials */}
         {Object.keys(talent.socials).length > 0 && (
           <div className="tc-socials">
-            {SOCIAL_OPTIONS.filter((s) => talent.socials[s.key]?.url).map(
-              (s) => (
+            {SOCIAL_CONFIG.filter((s) => talent.socials[s.key]).map((s) => {
+              const count = formatFollowers(talent.socials[s.key].followers);
+              if (!count) return null;
+              return (
                 <a
                   key={s.key}
                   href={talent.socials[s.key].url}
                   target="_blank"
                   rel="noreferrer"
                   className="tc-social-item"
-                  title={s.label}
                 >
                   <span className="tc-social-icon">{s.icon}</span>
-                  <span className="tc-social-count">
-                    {formatFollowers(talent.socials[s.key].followers)}
-                  </span>
+                  <span className="tc-social-count">{count}</span>
                 </a>
-              ),
-            )}
+              );
+            })}
           </div>
         )}
 
+        {/* Categories */}
         {talent.categories.length > 0 && (
           <div className="tc-cats">
             {talent.categories.map((c) => (
@@ -162,10 +146,51 @@ function TalentCard({ talent }) {
   );
 }
 
+// ── Skeleton ──────────────────────────────────────────────────────────────────
+function SkeletonCard() {
+  return (
+    <div className="tc-card tc-skeleton">
+      <div className="tc-photo-wrap skel-photo" />
+      <div className="tc-body">
+        <div
+          className="skel-line"
+          style={{ width: "65%", height: 13, marginBottom: 10 }}
+        />
+        <div
+          className="skel-line"
+          style={{ width: "45%", height: 11, marginBottom: 8 }}
+        />
+        <div style={{ display: "flex", gap: 6 }}>
+          <div className="skel-line" style={{ width: 40, height: 18 }} />
+          <div className="skel-line" style={{ width: 40, height: 18 }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── TalentSection ──────────────────────────────────────────────────────────────
 export default function TalentSection() {
-  // TODO: ganti DUMMY_TALENTS dengan data dari API
-  const talents = DUMMY_TALENTS;
+  const [talents, setTalents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    fetch(`${BASE_URL}/api/creators`)
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then((data) => {
+        const mapped = Array.isArray(data) ? data.map(mapCreatorToTalent) : [];
+        setTalents(mapped);
+      })
+      .catch((err) => {
+        console.error("Gagal fetch creators:", err);
+        setError(err.message);
+      })
+      .finally(() => setLoading(false));
+  }, []);
 
   return (
     <>
@@ -190,6 +215,15 @@ export default function TalentSection() {
           margin: 0 0 32px;
         }
 
+        /* ── Error ── */
+        .ts-error {
+          text-align: center;
+          padding: 3rem 1rem;
+          color: #ef4444;
+          font-size: 0.9rem;
+          font-weight: 500;
+        }
+
         /* ── Grid ── */
         .ts-grid {
           display: grid;
@@ -210,12 +244,18 @@ export default function TalentSection() {
           overflow: hidden;
           background: #fff;
           transition: box-shadow 0.25s, transform 0.25s;
+          animation: tcFadeIn 0.35s ease both;
+        }
+        @keyframes tcFadeIn {
+          from { opacity: 0; transform: translateY(12px); }
+          to   { opacity: 1; transform: translateY(0); }
         }
         .tc-card:hover {
           box-shadow: 0 8px 32px rgba(0,0,0,0.10);
           transform: translateY(-3px);
         }
 
+        /* ── Photo ── */
         .tc-photo-wrap {
           width: 100%;
           aspect-ratio: 3 / 4;
@@ -230,7 +270,16 @@ export default function TalentSection() {
           transition: transform 0.4s ease;
         }
         .tc-card:hover .tc-photo { transform: scale(1.04); }
+        .tc-photo-fallback {
+          width: 100%; height: 100%;
+          background: linear-gradient(135deg, #1a2744, #4f7cff);
+          display: flex; align-items: center; justify-content: center;
+        }
+        .tc-photo-fallback span {
+          font-size: 3rem; font-weight: 800; color: #fff;
+        }
 
+        /* ── Body ── */
         .tc-body {
           padding: 14px 14px 16px;
         }
@@ -244,7 +293,7 @@ export default function TalentSection() {
           line-height: 1.25;
         }
 
-        /* Socials — semua hitam */
+        /* ── Socials ── */
         .tc-socials {
           display: flex;
           flex-wrap: wrap;
@@ -259,41 +308,67 @@ export default function TalentSection() {
           color: #0a0a0a;
           transition: opacity 0.15s;
         }
-        .tc-social-item:hover { opacity: 0.5; }
-        .tc-social-icon {
-          display: flex;
-          align-items: center;
-          color: #0a0a0a;
-        }
+        .tc-social-item:hover { opacity: 0.45; }
+        .tc-social-icon { display: flex; align-items: center; }
         .tc-social-count {
-          font-size: 0.75rem;
-          font-weight: 600;
+          font-size: 0.72rem;
+          font-weight: 700;
           color: #0a0a0a;
         }
 
-        /* Categories */
+        /* ── Categories ── */
         .tc-cats {
           display: flex;
           flex-wrap: wrap;
           gap: 4px;
+          margin-top: 2px;
         }
         .tc-cat {
-          font-size: 0.68rem;
+          font-size: 0.67rem;
           font-weight: 500;
           color: #555;
           background: #f2f2f2;
           border-radius: 4px;
           padding: 2px 7px;
         }
+
+        /* ── Skeleton ── */
+        .tc-skeleton { pointer-events: none; }
+        .skel-photo {
+          aspect-ratio: 3 / 4;
+          background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+          background-size: 200% 100%;
+          animation: shimmer 1.4s infinite;
+        }
+        .skel-line {
+          border-radius: 6px;
+          display: block;
+          background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+          background-size: 200% 100%;
+          animation: shimmer 1.4s infinite;
+        }
+        @keyframes shimmer {
+          0%   { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
       `}</style>
 
       <section className="ts-root">
         <h2 className="ts-title">Official Talent Hainick</h2>
-        <div className="ts-grid">
-          {talents.map((t) => (
-            <TalentCard key={t.id} talent={t} />
-          ))}
-        </div>
+
+        {error ? (
+          <p className="ts-error">Gagal memuat data talent: {error}</p>
+        ) : (
+          <div className="ts-grid">
+            {loading
+              ? Array.from({ length: 6 }).map((_, i) => (
+                  <SkeletonCard key={i} />
+                ))
+              : talents.map((t, i) => (
+                  <TalentCard key={t.id} talent={t} index={i} />
+                ))}
+          </div>
+        )}
       </section>
     </>
   );

@@ -1,6 +1,123 @@
-// TODO: Sambungkan ke API backend untuk fetch & update data About Us
+import { useState, useEffect, useRef } from "react";
+
+// TODO: Sesuaikan BASE_URL jika port backend berbeda
+const BASE_URL = "http://localhost:8000";
 
 const AboutPanel = () => {
+  const [videoUrl, setVideoUrl] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState(null);
+  const [successMsg, setSuccessMsg] = useState(null);
+  const [previewFile, setPreviewFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState(null);
+  const [showModal, setShowModal] = useState(false);
+  const fileInputRef = useRef(null);
+
+  // ── Fetch data dari API ──────────────────────────────────────────
+  const fetchData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`${BASE_URL}/api/hainick-assets`);
+      if (!res.ok) throw new Error("Gagal mengambil data dari server");
+      const data = await res.json();
+      const showcase = data.find(
+        (item) => item.image_type === "talent_showcase",
+      );
+      setVideoUrl(showcase ? `${BASE_URL}${showcase.image_url}` : null);
+    } catch (err) {
+      setError("Gagal memuat data. Pastikan server berjalan di " + BASE_URL);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  // ── Auto-hide success message ────────────────────────────────────
+  useEffect(() => {
+    if (successMsg) {
+      const t = setTimeout(() => setSuccessMsg(null), 3500);
+      return () => clearTimeout(t);
+    }
+  }, [successMsg]);
+
+  // ── Handle file pilihan ─────────────────────────────────────────
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (!file.type.startsWith("video/")) {
+      setError("File harus berupa video (mp4, webm, dll.)");
+      return;
+    }
+    setError(null);
+    setPreviewFile(file);
+    setPreviewUrl(URL.createObjectURL(file));
+    setShowModal(true);
+  };
+
+  const handleCancelModal = () => {
+    setShowModal(false);
+    setPreviewFile(null);
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  // ── Upload / Update ke backend ───────────────────────────────────
+  const handleUpload = async () => {
+    if (!previewFile) return;
+    setUploading(true);
+    setError(null);
+
+    const formData = new FormData();
+    formData.append("image", previewFile); // backend pakai key "image"
+
+    try {
+      // Cek apakah sudah ada talent_showcase
+      const checkRes = await fetch(`${BASE_URL}/api/hainick-assets`);
+      const assets = await checkRes.json();
+      const exists = assets.find(
+        (item) => item.image_type === "talent_showcase",
+      );
+
+      let res;
+      if (exists) {
+        // UPDATE — PUT /api/update-hainick-assets/:image_type
+        res = await fetch(
+          `${BASE_URL}/api/update-hainick-assets/talent_showcase`,
+          {
+            method: "PUT",
+            body: formData,
+          },
+        );
+      } else {
+        // CREATE — POST /api/create-hainick-assets
+        formData.append("image_type", "talent_showcase");
+        res = await fetch(`${BASE_URL}/api/create-hainick-assets`, {
+          method: "POST",
+          body: formData,
+        });
+      }
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || "Gagal menyimpan video");
+      }
+
+      setSuccessMsg("✅ Video Talent Showcase berhasil diperbarui!");
+      handleCancelModal();
+      await fetchData(); // refresh tampilan
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
     <>
       <style>{`
@@ -13,6 +130,7 @@ const AboutPanel = () => {
           gap: 1.5rem;
         }
 
+        /* ── Header ── */
         .panel-header {
           display: flex;
           align-items: center;
@@ -27,27 +145,9 @@ const AboutPanel = () => {
           color: #0a0a0a;
           letter-spacing: -0.02em;
         }
-        .panel-page-sub {
-          font-size: 0.82rem;
-          color: #9ca3af;
-        }
-        .panel-add-btn {
-          background: #1a2744;
-          color: #fff;
-          border: none;
-          border-radius: 10px;
-          padding: 0.6rem 1.2rem;
-          font-family: 'Plus Jakarta Sans', sans-serif;
-          font-weight: 600;
-          font-size: 0.875rem;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          gap: 0.4rem;
-          transition: background 0.2s, transform 0.15s;
-        }
-        .panel-add-btn:hover { background: #263660; transform: translateY(-1px); }
+        .panel-page-sub { font-size: 0.82rem; color: #9ca3af; }
 
+        /* ── Stats ── */
         .panel-stats {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -77,6 +177,7 @@ const AboutPanel = () => {
         }
         .stat-hint { font-size: 0.75rem; color: #6b7280; }
 
+        /* ── Card ── */
         .panel-card {
           background: #fff;
           border-radius: 16px;
@@ -92,44 +193,46 @@ const AboutPanel = () => {
           flex-wrap: wrap;
           gap: 0.75rem;
         }
-        .panel-card-title {
-          font-size: 0.9rem;
-          font-weight: 700;
-          color: #1a2744;
-        }
-        .panel-search {
-          padding: 0.45rem 0.9rem;
-          border: 1.5px solid #e5e7eb;
-          border-radius: 8px;
-          font-family: 'Plus Jakarta Sans', sans-serif;
-          font-size: 0.82rem;
-          outline: none;
-          width: 200px;
-          transition: border-color 0.2s;
-        }
-        .panel-search:focus { border-color: #1a2744; }
+        .panel-card-title { font-size: 0.9rem; font-weight: 700; color: #1a2744; }
 
-        .panel-table-wrap { overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; font-size: 0.855rem; }
-        thead tr { background: #f8fafc; }
-        th {
-          padding: 0.75rem 1.2rem;
-          text-align: left;
-          font-size: 0.75rem;
-          font-weight: 700;
-          color: #6b7280;
-          letter-spacing: 0.06em;
-          text-transform: uppercase;
-          white-space: nowrap;
-        }
-        td {
-          padding: 0.85rem 1.2rem;
-          color: #374151;
-          border-top: 1px solid #f1f5f9;
-          vertical-align: middle;
-        }
-        tr:hover td { background: #f8fafc; }
+        /* ── Video area ── */
+        .video-section { padding: 1.5rem; display: flex; flex-direction: column; gap: 1.25rem; }
 
+        .video-preview-wrap {
+          position: relative;
+          width: 100%;
+          max-width: 640px;
+          aspect-ratio: 16/9;
+          background: #f1f5f9;
+          border-radius: 12px;
+          overflow: hidden;
+          border: 1.5px dashed #cbd5e1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .video-preview-wrap video {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          border-radius: 10px;
+        }
+        .video-empty-state {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.5rem;
+          color: #9ca3af;
+        }
+        .video-empty-icon { font-size: 2.5rem; }
+        .video-empty-text { font-size: 0.85rem; font-weight: 500; }
+
+        .video-meta {
+          display: flex;
+          align-items: center;
+          gap: 0.6rem;
+          flex-wrap: wrap;
+        }
         .badge {
           display: inline-block;
           padding: 0.2rem 0.65rem;
@@ -138,111 +241,298 @@ const AboutPanel = () => {
           font-weight: 700;
         }
         .badge-active { background: #dcfce7; color: #16a34a; }
-        .badge-draft  { background: #fef9c3; color: #ca8a04; }
+        .badge-empty  { background: #f3f4f6; color: #6b7280; }
 
-        .action-btn {
+        .video-filename {
+          font-size: 0.78rem;
+          color: #6b7280;
+          word-break: break-all;
+        }
+
+        /* ── Buttons ── */
+        .btn-primary {
+          background: #1a2744;
+          color: #fff;
+          border: none;
+          border-radius: 10px;
+          padding: 0.6rem 1.2rem;
+          font-family: 'Plus Jakarta Sans', sans-serif;
+          font-weight: 600;
+          font-size: 0.875rem;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          gap: 0.4rem;
+          transition: background 0.2s, transform 0.15s;
+        }
+        .btn-primary:hover:not(:disabled) { background: #263660; transform: translateY(-1px); }
+        .btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
+
+        .btn-outline {
           background: none;
           border: 1.5px solid #e5e7eb;
-          border-radius: 7px;
-          padding: 0.28rem 0.65rem;
+          border-radius: 10px;
+          padding: 0.55rem 1.1rem;
           font-family: 'Plus Jakarta Sans', sans-serif;
-          font-size: 0.75rem;
           font-weight: 600;
-          cursor: pointer;
-          transition: all 0.18s;
+          font-size: 0.875rem;
           color: #374151;
+          cursor: pointer;
+          transition: border-color 0.18s, color 0.18s;
         }
-        .action-btn:hover { border-color: #1a2744; color: #1a2744; }
-        .action-btn.del:hover { border-color: #ef4444; color: #ef4444; }
+        .btn-outline:hover { border-color: #1a2744; color: #1a2744; }
 
-        .empty-state {
-          padding: 3rem;
-          text-align: center;
-          color: #9ca3af;
-          font-size: 0.9rem;
+        /* ── Alerts ── */
+        .alert {
+          padding: 0.75rem 1rem;
+          border-radius: 10px;
+          font-size: 0.84rem;
+          font-weight: 500;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
         }
-        .empty-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+        .alert-error   { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+        .alert-success { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
+
+        /* ── Loading skeleton ── */
+        .skeleton {
+          border-radius: 12px;
+          background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+          background-size: 200% 100%;
+          animation: shimmer 1.4s infinite;
+        }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+        /* ── Modal ── */
+        .modal-overlay {
+          position: fixed;
+          inset: 0;
+          background: rgba(10,10,10,0.55);
+          backdrop-filter: blur(3px);
+          z-index: 9999;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 1rem;
+        }
+        .modal-box {
+          background: #fff;
+          border-radius: 18px;
+          width: 100%;
+          max-width: 520px;
+          padding: 1.75rem;
+          display: flex;
+          flex-direction: column;
+          gap: 1.25rem;
+          box-shadow: 0 20px 60px rgba(0,0,0,0.18);
+          animation: modalIn 0.22s ease;
+        }
+        @keyframes modalIn {
+          from { opacity: 0; transform: scale(0.95) translateY(8px); }
+          to   { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        .modal-title { font-size: 1rem; font-weight: 800; color: #0a0a0a; }
+        .modal-sub   { font-size: 0.8rem; color: #9ca3af; margin-top: 2px; }
+        .modal-preview {
+          width: 100%;
+          aspect-ratio: 16/9;
+          border-radius: 10px;
+          overflow: hidden;
+          background: #0a0a0a;
+        }
+        .modal-preview video { width: 100%; height: 100%; object-fit: contain; }
+        .modal-preview-filename {
+          font-size: 0.78rem;
+          color: #6b7280;
+          word-break: break-all;
+        }
+        .modal-actions { display: flex; gap: 0.75rem; justify-content: flex-end; flex-wrap: wrap; }
+
+        .hidden-input { display: none; }
 
         @media (max-width: 600px) {
-          .panel-search { width: 100%; }
-          th, td { padding: 0.65rem 0.85rem; }
+          .video-section { padding: 1rem; }
+          .modal-box { padding: 1.25rem; }
         }
       `}</style>
 
       <div className="panel-wrap">
+        {/* ── Header ── */}
         <div className="panel-header">
           <div className="panel-header-left">
             <h1 className="panel-page-title">◎ About Us</h1>
             <p className="panel-page-sub">
-              Kelola informasi tentang Hainick Creative
+              Kelola konten tentang Hainick Creative
             </p>
           </div>
-          <button className="panel-add-btn">+ Tambah About Us</button>
         </div>
 
+        {/* ── Stats ── */}
         <div className="panel-stats">
           <div className="stat-card">
-            <span className="stat-label">Total</span>
-            <span className="stat-value">0</span>
-            {/* TODO: isi dari API */}
-            <span className="stat-hint">item terdaftar</span>
+            <span className="stat-label">Konten</span>
+            <span className="stat-value">1</span>
+            <span className="stat-hint">Talent Showcase Video</span>
           </div>
           <div className="stat-card">
-            <span className="stat-label">Aktif</span>
-            <span className="stat-value">0</span>
+            <span className="stat-label">Status</span>
+            <span
+              className="stat-value"
+              style={{ fontSize: "1rem", paddingTop: "0.3rem" }}
+            >
+              {loading ? (
+                "—"
+              ) : videoUrl ? (
+                <span className="badge badge-active">Aktif</span>
+              ) : (
+                <span className="badge badge-empty">Kosong</span>
+              )}
+            </span>
             <span className="stat-hint">ditampilkan di landing</span>
           </div>
           <div className="stat-card">
-            <span className="stat-label">Draft</span>
-            <span className="stat-value">0</span>
-            <span className="stat-hint">belum dipublikasi</span>
+            <span className="stat-label">Tipe</span>
+            <span
+              className="stat-value"
+              style={{
+                fontSize: "0.9rem",
+                paddingTop: "0.35rem",
+                color: "#6b7280",
+              }}
+            >
+              talent_showcase
+            </span>
+            <span className="stat-hint">enum website_assets</span>
           </div>
         </div>
 
+        {/* ── Alert ── */}
+        {error && <div className="alert alert-error">⚠️ {error}</div>}
+        {successMsg && <div className="alert alert-success">{successMsg}</div>}
+
+        {/* ── Video Card ── */}
         <div className="panel-card">
           <div className="panel-card-header">
-            <span className="panel-card-title">Daftar About Us</span>
-            <input
-              className="panel-search"
-              placeholder="Cari..."
-              type="search"
-            />
+            <span className="panel-card-title">Talent Showcase Video</span>
+            <button
+              className="btn-primary"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading || loading}
+            >
+              {videoUrl ? "🔄 Ganti Video" : "＋ Upload Video"}
+            </button>
           </div>
-          <div className="panel-table-wrap">
-            {/* TODO: ganti dengan data dari API — contoh struktur tabel: */}
-            {/*
-            <table>
-              <thead>
-                <tr>
-                  <th>No</th>
-                  <th>Nama</th>
-                  <th>Status</th>
-                  <th>Aksi</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>1</td>
-                  <td>Contoh Item</td>
-                  <td><span className="badge badge-active">Aktif</span></td>
-                  <td style={{display:"flex", gap:"0.4rem"}}>
-                    <button className="action-btn">Edit</button>
-                    <button className="action-btn del">Hapus</button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-            */}
-            <div className="empty-state">
-              <div className="empty-icon">◎</div>
-              <p>Belum ada data About Us.</p>
-              <p>
-                Klik <strong>+ Tambah About Us</strong> untuk mulai.
-              </p>
-            </div>
+
+          <div className="video-section">
+            {/* Hidden file input — hanya menerima video */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="video/*"
+              className="hidden-input"
+              onChange={handleFileChange}
+            />
+
+            {/* Preview video */}
+            {loading ? (
+              <div
+                className="skeleton"
+                style={{ width: "100%", maxWidth: 640, aspectRatio: "16/9" }}
+              />
+            ) : (
+              <div className="video-preview-wrap">
+                {videoUrl ? (
+                  <video src={videoUrl} controls />
+                ) : (
+                  <div className="video-empty-state">
+                    <div className="video-empty-icon">🎬</div>
+                    <div className="video-empty-text">
+                      Belum ada video diunggah
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Meta info */}
+            {!loading && (
+              <div className="video-meta">
+                {videoUrl ? (
+                  <>
+                    <span className="badge badge-active">Aktif</span>
+                    <span className="video-filename">
+                      {videoUrl.split("/").pop()}
+                    </span>
+                  </>
+                ) : (
+                  <span className="badge badge-empty">Belum ada video</span>
+                )}
+              </div>
+            )}
+
+            {/* Info tabel */}
+            <p style={{ fontSize: "0.78rem", color: "#9ca3af", margin: 0 }}>
+              Tabel: <code>website_assets</code> · image_type:{" "}
+              <code>talent_showcase</code>
+            </p>
           </div>
         </div>
       </div>
+
+      {/* ── Confirmation Modal ── */}
+      {showModal && (
+        <div
+          className="modal-overlay"
+          onClick={(e) => e.target === e.currentTarget && handleCancelModal()}
+        >
+          <div className="modal-box">
+            <div>
+              <div className="modal-title">Konfirmasi Ganti Video</div>
+              <div className="modal-sub">
+                Preview video baru sebelum disimpan ke server
+              </div>
+            </div>
+
+            {previewUrl && (
+              <div className="modal-preview">
+                <video src={previewUrl} controls autoPlay muted />
+              </div>
+            )}
+
+            <div className="modal-preview-filename">
+              📁 {previewFile?.name} &nbsp;·&nbsp;
+              {previewFile
+                ? (previewFile.size / (1024 * 1024)).toFixed(2) + " MB"
+                : ""}
+            </div>
+
+            {videoUrl && (
+              <p style={{ fontSize: "0.8rem", color: "#f59e0b", margin: 0 }}>
+                ⚠️ Video lama (<strong>{videoUrl.split("/").pop()}</strong>)
+                akan diganti.
+              </p>
+            )}
+
+            <div className="modal-actions">
+              <button
+                className="btn-outline"
+                onClick={handleCancelModal}
+                disabled={uploading}
+              >
+                Batal
+              </button>
+              <button
+                className="btn-primary"
+                onClick={handleUpload}
+                disabled={uploading}
+              >
+                {uploading ? "⏳ Mengupload..." : "✅ Simpan Video"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

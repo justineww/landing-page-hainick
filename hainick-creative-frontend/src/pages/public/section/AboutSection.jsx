@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 
-// ── Dummy Data (replace with API calls once backend is ready) ──────────────────
+const BASE_URL = "http://localhost:8000";
+
+// ── Static Data ───────────────────────────────────────────────────────────────
 const ABOUT_DATA = {
   companyName: "PT HAINICK KREATIF INDONESIA",
   description:
@@ -37,7 +39,6 @@ const ABOUT_DATA = {
       "https://images.unsplash.com/photo-1598387993441-a364f854cfc9?w=900&q=80",
     label: "Hainick Talent Showcase",
     sublabel: "Watch our creators in action",
-    videoUrl: "#",
   },
 };
 
@@ -54,19 +55,16 @@ const InstagramIcon = () => (
   </svg>
 );
 
-const PlayIcon = () => (
-  <svg width="52" height="52" viewBox="0 0 52 52" fill="none">
-    <circle cx="26" cy="26" r="26" fill="rgba(255,255,255,0.18)" />
-    <circle cx="26" cy="26" r="22" fill="rgba(255,255,255,0.25)" />
-    <polygon points="21,17 38,26 21,35" fill="white" />
-  </svg>
-);
-
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function AboutSection() {
-  const [videoOpen, setVideoOpen] = useState(false);
+  const [videoUrl, setVideoUrl] = useState(null);
+  const [videoLoading, setVideoLoading] = useState(true);
+
+  // Ref ke elemen video dan wrapper-nya
+  const videoRef = useRef(null);
+  const wrapperRef = useRef(null);
+
   const {
-    companyName,
     description,
     services,
     vision,
@@ -75,6 +73,64 @@ export default function AboutSection() {
     socials,
     showcaseVideo,
   } = ABOUT_DATA;
+
+  // ── Fetch talent_showcase dari API ────────────────────────────────
+  useEffect(() => {
+    const fetchVideo = async () => {
+      try {
+        const res = await fetch(`${BASE_URL}/api/hainick-assets`);
+        if (!res.ok) throw new Error("Gagal fetch assets");
+        const data = await res.json();
+        const showcase = data.find(
+          (item) => item.image_type === "talent_showcase",
+        );
+        if (showcase?.image_url) {
+          setVideoUrl(`${BASE_URL}${showcase.image_url}`);
+        }
+      } catch (err) {
+        console.error("Gagal memuat video showcase:", err);
+      } finally {
+        setVideoLoading(false);
+      }
+    };
+
+    fetchVideo();
+  }, []);
+
+  // ── Intersection Observer: autoplay saat video masuk viewport ─────
+  useEffect(() => {
+    if (!videoUrl || videoLoading) return;
+
+    const video = videoRef.current;
+    const wrapper = wrapperRef.current;
+    if (!video || !wrapper) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            // Video terlihat → play
+            video.play().catch(() => {
+              // Browser blokir autoplay dengan suara → coba muted
+              video.muted = true;
+              video.play();
+            });
+          } else {
+            // Video keluar viewport → pause
+            video.pause();
+          }
+        });
+      },
+      {
+        // Mulai play saat 30% video sudah kelihatan
+        threshold: 0.3,
+      },
+    );
+
+    observer.observe(wrapper);
+
+    return () => observer.disconnect();
+  }, [videoUrl, videoLoading]);
 
   return (
     <>
@@ -107,7 +163,6 @@ export default function AboutSection() {
           box-sizing: border-box;
         }
 
-        /* ── Heading ── */
         .about-page-title {
           font-family: var(--font-display);
           font-size: clamp(1.75rem, 4vw, 2.4rem);
@@ -116,32 +171,24 @@ export default function AboutSection() {
           letter-spacing: -0.03em;
           line-height: 1.1;
         }
+        .about-page-title span { color: var(--clr-accent); }
 
-        .about-page-title span {
-          color: var(--clr-accent);
-        }
-
-        /* ── Body text ── */
         .about-desc {
           font-size: clamp(0.875rem, 1.8vw, 0.96rem);
           line-height: 1.75;
           color: var(--clr-muted);
           margin: 0 0 40px;
           font-weight: 300;
-          max-width: 100%;
         }
 
-        /* ── Section title ── */
         .section-title {
           font-family: var(--font-display);
           font-size: clamp(1.1rem, 2.5vw, 1.35rem);
           font-weight: 700;
           margin: 0 0 14px;
           letter-spacing: -0.02em;
-          position: relative;
           padding-bottom: 10px;
         }
-
         .section-title::after {
           content: '';
           display: block;
@@ -152,14 +199,12 @@ export default function AboutSection() {
           border-radius: 2px;
         }
 
-        /* ── Services ── */
         .services-grid {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
           gap: 16px;
           margin-bottom: 40px;
         }
-
         .service-card {
           background: var(--clr-accent-light);
           border: 1px solid #c8e6d6;
@@ -167,28 +212,13 @@ export default function AboutSection() {
           padding: 20px 22px;
           transition: box-shadow 0.2s ease, transform 0.2s ease;
         }
-
         .service-card:hover {
           box-shadow: 0 6px 24px rgba(42,111,78,0.12);
           transform: translateY(-2px);
         }
+        .service-card-title { font-size: 0.92rem; font-weight: 600; margin: 0 0 8px; color: var(--clr-accent); }
+        .service-card-desc { font-size: 0.865rem; line-height: 1.65; color: var(--clr-muted); margin: 0; font-weight: 300; }
 
-        .service-card-title {
-          font-size: 0.92rem;
-          font-weight: 600;
-          margin: 0 0 8px;
-          color: var(--clr-accent);
-        }
-
-        .service-card-desc {
-          font-size: 0.865rem;
-          line-height: 1.65;
-          color: var(--clr-muted);
-          margin: 0;
-          font-weight: 300;
-        }
-
-        /* ── Vision ── */
         .vision-box {
           background: var(--clr-tag-bg);
           border-left: 3px solid var(--clr-accent);
@@ -201,227 +231,83 @@ export default function AboutSection() {
           font-style: italic;
         }
 
-        /* ── Mission ── */
-        .mission-list {
-          list-style: none;
-          padding: 0;
-          margin: 0 0 40px;
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-        }
+        .mission-list { list-style: none; padding: 0; margin: 0 0 40px; display: flex; flex-direction: column; gap: 10px; }
+        .mission-list li { display: flex; align-items: flex-start; gap: 10px; font-size: 0.9rem; line-height: 1.65; color: var(--clr-muted); }
+        .mission-list li::before { content: '✦'; color: var(--clr-accent); font-size: 0.65rem; margin-top: 5px; flex-shrink: 0; }
 
-        .mission-list li {
-          display: flex;
-          align-items: flex-start;
-          gap: 10px;
-          font-size: 0.9rem;
-          line-height: 1.65;
-          color: var(--clr-muted);
-        }
+        .why-box { font-size: 0.9rem; line-height: 1.75; color: var(--clr-muted); margin-bottom: 32px; }
 
-        .mission-list li::before {
-          content: '✦';
-          color: var(--clr-accent);
-          font-size: 0.65rem;
-          margin-top: 5px;
-          flex-shrink: 0;
-        }
-
-        /* ── Why Choose Us ── */
-        .why-box {
-          font-size: 0.9rem;
-          line-height: 1.75;
-          color: var(--clr-muted);
-          margin-bottom: 32px;
-        }
-
-        /* ── Social Buttons ── */
-        .social-buttons {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 10px;
-          margin-bottom: 48px;
-        }
-
+        .social-buttons { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 48px; }
         .social-btn {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          padding: 9px 18px;
-          border: 1.5px solid var(--clr-border);
-          border-radius: var(--radius-btn);
-          background: white;
-          color: var(--clr-text);
-          font-family: var(--font-body);
-          font-size: 0.85rem;
-          font-weight: 500;
-          text-decoration: none;
-          cursor: pointer;
-          transition: border-color 0.2s, background 0.2s, color 0.2s, box-shadow 0.2s;
+          display: inline-flex; align-items: center; gap: 8px;
+          padding: 9px 18px; border: 1.5px solid var(--clr-border);
+          border-radius: var(--radius-btn); background: white;
+          color: var(--clr-text); font-family: var(--font-body);
+          font-size: 0.85rem; font-weight: 500; text-decoration: none;
+          cursor: pointer; transition: border-color 0.2s, background 0.2s, color 0.2s, box-shadow 0.2s;
         }
-
-        .social-btn:hover {
-          border-color: var(--clr-accent);
-          color: var(--clr-accent);
-          box-shadow: 0 2px 10px rgba(42,111,78,0.1);
-        }
-
+        .social-btn:hover { border-color: var(--clr-accent); color: var(--clr-accent); box-shadow: 0 2px 10px rgba(42,111,78,0.1); }
         .social-btn.whatsapp:hover { background: #e8f9ef; }
         .social-btn.instagram:hover { background: #fdf0f8; border-color: #c13584; color: #c13584; }
 
-        /* ── Video Showcase ── */
+        /* ── Showcase ── */
         .showcase-wrapper {
           border-radius: 14px;
           overflow: hidden;
           position: relative;
-          cursor: pointer;
-          aspect-ratio: 16 / 9;
+          aspect-ratio: 16/9;
           background: #111;
           box-shadow: 0 8px 40px rgba(0,0,0,0.18);
         }
 
-        .showcase-thumb {
+        /* skeleton shimmer saat loading */
+        .showcase-skeleton {
+          width: 100%; height: 100%;
+          background: linear-gradient(90deg, #1a1a1a 25%, #2a2a2a 50%, #1a1a1a 75%);
+          background-size: 200% 100%;
+          animation: shimmer 1.4s infinite;
+        }
+        @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+        /* Video inline — langsung ditampilkan penuh */
+        .showcase-video {
           width: 100%;
           height: 100%;
           object-fit: cover;
           display: block;
-          transition: transform 0.5s ease, filter 0.3s;
-          filter: brightness(0.72);
         }
 
-        .showcase-wrapper:hover .showcase-thumb {
-          transform: scale(1.03);
-          filter: brightness(0.55);
-        }
-
-        .showcase-overlay {
-          position: absolute;
-          inset: 0;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 12px;
-        }
-
-        .play-btn {
-          transition: transform 0.2s ease;
-          filter: drop-shadow(0 4px 12px rgba(0,0,0,0.3));
-        }
-        .showcase-wrapper:hover .play-btn {
-          transform: scale(1.1);
-        }
-
-        .showcase-brand {
-          font-family: var(--font-display);
-          font-size: clamp(1.6rem, 5vw, 2.4rem);
-          font-weight: 800;
-          color: white;
-          letter-spacing: -0.03em;
-          text-shadow: 0 2px 10px rgba(0,0,0,0.4);
-        }
-
+        /* Overlay info di bawah */
         .showcase-meta {
           position: absolute;
           bottom: 20px;
           left: 24px;
+          pointer-events: none;
         }
+        .showcase-meta-title { color: white; font-size: 1rem; font-weight: 600; margin: 0 0 2px; text-shadow: 0 1px 6px rgba(0,0,0,0.5); }
+        .showcase-meta-sub { color: rgba(255,255,255,0.75); font-size: 0.8rem; margin: 0; }
 
-        .showcase-meta-title {
-          color: white;
-          font-size: 1rem;
-          font-weight: 600;
-          margin: 0 0 2px;
-          text-shadow: 0 1px 6px rgba(0,0,0,0.5);
-        }
-
-        .showcase-meta-sub {
-          color: rgba(255,255,255,0.75);
-          font-size: 0.8rem;
-          margin: 0;
-        }
-
-        /* ── Video Modal ── */
-        .modal-backdrop {
-          position: fixed;
-          inset: 0;
-          background: rgba(0,0,0,0.85);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 1000;
-          padding: 24px;
-          animation: fadeIn 0.2s ease;
-        }
-
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-
-        .modal-inner {
-          position: relative;
-          width: 100%;
-          max-width: 860px;
-          aspect-ratio: 16/9;
-          background: #000;
-          border-radius: 12px;
-          overflow: hidden;
-          animation: scaleIn 0.25s ease;
-        }
-
-        @keyframes scaleIn {
-          from { transform: scale(0.94); opacity: 0; }
-          to { transform: scale(1); opacity: 1; }
-        }
-
-        .modal-close {
+        /* gradient gelap di bawah supaya teks terbaca */
+        .showcase-gradient {
           position: absolute;
-          top: 12px;
-          right: 14px;
-          background: rgba(255,255,255,0.15);
-          border: none;
-          color: white;
-          font-size: 1.4rem;
-          width: 36px;
-          height: 36px;
-          border-radius: 50%;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          z-index: 2;
-          transition: background 0.2s;
+          bottom: 0; left: 0; right: 0;
+          height: 80px;
+          background: linear-gradient(to top, rgba(0,0,0,0.55), transparent);
+          pointer-events: none;
         }
 
-        .modal-close:hover { background: rgba(255,255,255,0.3); }
-
-        .modal-placeholder {
-          width: 100%;
-          height: 100%;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          color: white;
-          gap: 8px;
+        /* badge "no video" */
+        .no-video-badge {
+          width: 100%; height: 100%;
+          display: flex; flex-direction: column;
+          align-items: center; justify-content: center;
+          gap: 8px; color: rgba(255,255,255,0.45);
+          font-size: 0.85rem;
         }
+        .no-video-badge span { font-size: 2rem; }
 
-        .modal-placeholder p {
-          margin: 0;
-          font-size: 0.9rem;
-          opacity: 0.6;
-        }
+        .about-divider { border: none; border-top: 1px solid var(--clr-border); margin: 0 0 36px; }
 
-        /* ── Divider ── */
-        .about-divider {
-          border: none;
-          border-top: 1px solid var(--clr-border);
-          margin: 0 0 36px;
-        }
-
-        /* ── Responsive ── */
         @media (max-width: 600px) {
           .about-root { padding: 36px 18px 48px; }
           .services-grid { grid-template-columns: 1fr; }
@@ -435,7 +321,6 @@ export default function AboutSection() {
           About <span>Hainick</span>
         </h1>
         <p className="about-desc">{description}</p>
-
         <hr className="about-divider" />
 
         {/* Services */}
@@ -485,47 +370,38 @@ export default function AboutSection() {
           </a>
         </div>
 
-        {/* Video Showcase */}
-        <div
-          className="showcase-wrapper"
-          onClick={() => setVideoOpen(true)}
-          role="button"
-          tabIndex={0}
-          aria-label="Play Hainick Talent Showcase"
-          onKeyDown={(e) => e.key === "Enter" && setVideoOpen(true)}
-        >
-          <img
-            src={showcaseVideo.thumbnail}
-            alt="Talent Showcase"
-            className="showcase-thumb"
-          />
-          <div className="showcase-overlay">
-            <span className="play-btn">
-              <PlayIcon />
-            </span>
-            <span className="showcase-brand">hainick.</span>
-          </div>
-          <div className="showcase-meta">
-            <p className="showcase-meta-title">{showcaseVideo.label}</p>
-            <p className="showcase-meta-sub">{showcaseVideo.sublabel}</p>
-          </div>
+        {/* ── Video Showcase (inline autoplay) ── */}
+        <div className="showcase-wrapper" ref={wrapperRef}>
+          {videoLoading && <div className="showcase-skeleton" />}
+
+          {!videoLoading && videoUrl && (
+            <>
+              <video
+                ref={videoRef}
+                className="showcase-video"
+                src={videoUrl}
+                muted // wajib muted agar browser izinkan autoplay
+                loop
+                playsInline // penting untuk iOS agar tidak fullscreen
+                preload="auto"
+              />
+              {/* gradient + label */}
+              <div className="showcase-gradient" />
+              <div className="showcase-meta">
+                <p className="showcase-meta-title">{showcaseVideo.label}</p>
+                <p className="showcase-meta-sub">{showcaseVideo.sublabel}</p>
+              </div>
+            </>
+          )}
+
+          {!videoLoading && !videoUrl && (
+            <div className="no-video-badge">
+              <span>🎬</span>
+              <p>Video belum tersedia</p>
+            </div>
+          )}
         </div>
       </section>
-
-      {/* Video Modal */}
-      {videoOpen && (
-        <div className="modal-backdrop" onClick={() => setVideoOpen(false)}>
-          <div className="modal-inner" onClick={(e) => e.stopPropagation()}>
-            <button className="modal-close" onClick={() => setVideoOpen(false)}>
-              ✕
-            </button>
-            <div className="modal-placeholder">
-              <PlayIcon />
-              <p>Video will be embedded here once backend is ready.</p>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }
