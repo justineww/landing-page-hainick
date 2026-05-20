@@ -5,10 +5,10 @@ const menuItems = [
   { label: "Home", path: "/admin", icon: "⌂" },
   { label: "About Us", path: "/admin/about", icon: "◎" },
   { label: "Talent", path: "/admin/talent", icon: "★" },
-  { label: "Service", path: "/admin/service", icon: "◈" },
+  // { label: "Service", path: "/admin/service", icon: "◈" },
   { label: "Creator", path: "/admin/creator", icon: "✦" },
   { label: "Activity", path: "/admin/activity", icon: "◉" },
-  { label: "Pricelist", path: "/admin/pricelist", icon: "◇" },
+  // { label: "Pricelist", path: "/admin/pricelist", icon: "◇" },
   { label: "Testimony", path: "/admin/testimony", icon: "❝" },
   { label: "Contact Us", path: "/admin/contact", icon: "✉" },
 ];

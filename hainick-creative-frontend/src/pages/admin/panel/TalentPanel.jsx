@@ -1,6 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 const BASE_URL = "http://localhost:8000";
+
+const ROLE_OPTIONS = [
+  "Actor",
+  "Host",
+  "MC",
+  "Content Creator",
+  "Model",
+  "Momfluencer",
+];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const fmt = (n) => {
@@ -26,10 +35,132 @@ const XIcon = () => (
     <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.259 5.631 5.905-5.631zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
   </svg>
 );
+const ChevronIcon = ({ open }) => (
+  <svg
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    style={{
+      transition: "transform 0.2s",
+      transform: open ? "rotate(180deg)" : "rotate(0deg)",
+    }}
+  >
+    <polyline points="6 9 12 15 18 9" />
+  </svg>
+);
+
+// ── Multi-Select Roles Dropdown ───────────────────────────────────────────────
+const RolesDropdown = ({ selected, onChange }) => {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  // Tutup dropdown ketika klik di luar
+  useEffect(() => {
+    const handler = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const toggle = (role) => {
+    if (selected.includes(role)) {
+      onChange(selected.filter((r) => r !== role));
+    } else {
+      onChange([...selected, role]);
+    }
+  };
+
+  const removeRole = (role, e) => {
+    e.stopPropagation();
+    onChange(selected.filter((r) => r !== role));
+  };
+
+  return (
+    <div className="roles-dropdown-wrap" ref={ref}>
+      {/* Trigger */}
+      <div
+        className={`roles-trigger ${open ? "roles-trigger-open" : ""}`}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <div className="roles-trigger-content">
+          {selected.length === 0 ? (
+            <span className="roles-placeholder">Pilih roles...</span>
+          ) : (
+            <div className="roles-tags">
+              {selected.map((r) => (
+                <span key={r} className="roles-tag">
+                  {r}
+                  <button
+                    className="roles-tag-remove"
+                    onClick={(e) => removeRole(r, e)}
+                    type="button"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+        <span className="roles-chevron">
+          <ChevronIcon open={open} />
+        </span>
+      </div>
+
+      {/* Dropdown menu */}
+      {open && (
+        <div className="roles-menu">
+          {ROLE_OPTIONS.map((role) => {
+            const checked = selected.includes(role);
+            return (
+              <div
+                key={role}
+                className={`roles-option ${checked ? "roles-option-checked" : ""}`}
+                onClick={() => toggle(role)}
+              >
+                <span
+                  className={`roles-checkbox ${checked ? "roles-checkbox-checked" : ""}`}
+                >
+                  {checked && (
+                    <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
+                      <polyline
+                        points="2,6 5,9 10,3"
+                        stroke="#fff"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  )}
+                </span>
+                <span className="roles-option-label">{role}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
 
 // ── Modal Tambah / Edit ───────────────────────────────────────────────────────
 const TalentModal = ({ mode, talent, onClose, onSaved }) => {
   const isEdit = mode === "edit";
+
+  // Parse roles string menjadi array
+  const parseRoles = (rolesStr) => {
+    if (!rolesStr) return [];
+    return rolesStr
+      .split(",")
+      .map((r) => r.trim())
+      .filter(Boolean);
+  };
 
   const [form, setForm] = useState({
     name: talent?.name || "",
@@ -39,8 +170,8 @@ const TalentModal = ({ mode, talent, onClose, onSaved }) => {
     url_tiktok: talent?.url_tiktok || "",
     followers_x: talent?.followers_x || "",
     url_x: talent?.url_x || "",
-    roles: talent?.roles || "",
   });
+  const [selectedRoles, setSelectedRoles] = useState(parseRoles(talent?.roles));
   const [imageFile, setImageFile] = useState(null);
   const [preview, setPreview] = useState(
     talent?.profile_image ? `${BASE_URL}${talent.profile_image}` : null,
@@ -75,7 +206,8 @@ const TalentModal = ({ mode, talent, onClose, onSaved }) => {
     fd.append("url_tiktok", form.url_tiktok || "");
     fd.append("followers_x", form.followers_x || 0);
     fd.append("url_x", form.url_x || "");
-    fd.append("roles", form.roles);
+    // Gabungkan array roles menjadi string dipisah koma
+    fd.append("roles", selectedRoles.join(", "));
     if (imageFile) fd.append("image", imageFile);
 
     try {
@@ -93,7 +225,7 @@ const TalentModal = ({ mode, talent, onClose, onSaved }) => {
     }
   };
 
-  const fields = [
+  const textFields = [
     { label: "Nama", name: "name", placeholder: "Nama lengkap talent" },
     {
       label: "Followers Instagram",
@@ -117,11 +249,6 @@ const TalentModal = ({ mode, talent, onClose, onSaved }) => {
     },
     { label: "Followers X", name: "followers_x", placeholder: "misal: 8000" },
     { label: "URL X", name: "url_x", placeholder: "https://x.com/username" },
-    {
-      label: "Roles (pisahkan koma)",
-      name: "roles",
-      placeholder: "misal: Content Creator, Influencer",
-    },
   ];
 
   return (
@@ -151,7 +278,7 @@ const TalentModal = ({ mode, talent, onClose, onSaved }) => {
         </div>
 
         <div className="modal-fields">
-          {fields.map((f) => (
+          {textFields.map((f) => (
             <div className="field-group" key={f.name}>
               <label className="field-label">{f.label}</label>
               <input
@@ -163,6 +290,18 @@ const TalentModal = ({ mode, talent, onClose, onSaved }) => {
               />
             </div>
           ))}
+
+          {/* Roles multi-select dropdown */}
+          <div className="field-group">
+            <label className="field-label">Roles</label>
+            <RolesDropdown
+              selected={selectedRoles}
+              onChange={setSelectedRoles}
+            />
+            {selectedRoles.length === 0 && (
+              <span className="field-hint">Pilih satu atau lebih roles</span>
+            )}
+          </div>
         </div>
 
         {error && <p className="modal-error">{error}</p>}
@@ -414,7 +553,6 @@ const TalentPanel = () => {
         }
         .panel-add-btn:hover { background: var(--navy-light); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(26,39,68,0.25); }
 
-        /* ── Stats (hanya Total) ── */
         .panel-stats {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -589,6 +727,7 @@ const TalentPanel = () => {
         .skel-line  { height: 12px; }
         .skel-sm    { height: 10px; }
 
+        /* ── Modal ── */
         .modal-backdrop {
           position: fixed; inset: 0;
           background: rgba(10,15,30,0.55);
@@ -652,14 +791,148 @@ const TalentPanel = () => {
           transition: border-color 0.2s, box-shadow 0.2s;
         }
         .field-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(79,124,255,0.12); }
+        .field-hint { font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
 
-        /* Divider antar platform di form */
-        .field-divider {
-          border: none;
-          border-top: 1px dashed var(--border);
-          margin: 0.3rem 0;
+        /* ── Roles Dropdown ── */
+        .roles-dropdown-wrap {
+          position: relative;
+          font-family: var(--font);
         }
 
+        .roles-trigger {
+          min-height: 40px;
+          padding: 0.4rem 0.85rem;
+          border: 1.5px solid var(--border);
+          border-radius: 10px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.5rem;
+          background: #fff;
+          transition: border-color 0.2s, box-shadow 0.2s;
+          user-select: none;
+        }
+        .roles-trigger:hover { border-color: #c8d0dc; }
+        .roles-trigger-open {
+          border-color: var(--accent);
+          box-shadow: 0 0 0 3px rgba(79,124,255,0.12);
+        }
+
+        .roles-trigger-content {
+          flex: 1;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 4px;
+          min-width: 0;
+        }
+
+        .roles-placeholder {
+          font-size: 0.875rem;
+          color: var(--muted);
+          line-height: 1.6;
+        }
+
+        .roles-tags {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 4px;
+        }
+
+        .roles-tag {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          background: var(--accent-soft);
+          color: var(--accent);
+          font-size: 0.72rem;
+          font-weight: 700;
+          padding: 2px 6px 2px 8px;
+          border-radius: 100px;
+          letter-spacing: 0.02em;
+          white-space: nowrap;
+        }
+
+        .roles-tag-remove {
+          background: none;
+          border: none;
+          padding: 0;
+          margin: 0;
+          cursor: pointer;
+          color: var(--accent);
+          font-size: 1rem;
+          line-height: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 14px;
+          height: 14px;
+          border-radius: 50%;
+          transition: background 0.15s, color 0.15s;
+          font-family: var(--font);
+        }
+        .roles-tag-remove:hover { background: rgba(79,124,255,0.2); }
+
+        .roles-chevron {
+          color: var(--muted);
+          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+        }
+
+        .roles-menu {
+          position: absolute;
+          top: calc(100% + 6px);
+          left: 0;
+          right: 0;
+          background: #fff;
+          border: 1.5px solid var(--border);
+          border-radius: 12px;
+          box-shadow: 0 8px 32px rgba(26,39,68,0.14);
+          z-index: 100;
+          overflow: hidden;
+          animation: menuIn 0.18s ease;
+        }
+        @keyframes menuIn {
+          from { opacity: 0; transform: translateY(-6px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .roles-option {
+          display: flex;
+          align-items: center;
+          gap: 0.7rem;
+          padding: 0.6rem 1rem;
+          cursor: pointer;
+          font-size: 0.875rem;
+          color: var(--text);
+          font-weight: 500;
+          transition: background 0.12s;
+        }
+        .roles-option:hover { background: var(--bg); }
+        .roles-option-checked { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+        .roles-option-checked:hover { background: #e0e9ff; }
+
+        .roles-checkbox {
+          width: 18px;
+          height: 18px;
+          border-radius: 5px;
+          border: 1.5px solid var(--border);
+          background: #fff;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          transition: border-color 0.15s, background 0.15s;
+        }
+        .roles-checkbox-checked {
+          background: var(--accent);
+          border-color: var(--accent);
+        }
+
+        .roles-option-label { flex: 1; }
+
+        /* ── Modal actions ── */
         .modal-error { font-size: 0.82rem; color: var(--danger); margin: 0.8rem 0 0; font-weight: 500; }
 
         .modal-actions { display: flex; gap: 0.6rem; margin-top: 1.4rem; }
@@ -713,7 +986,7 @@ const TalentPanel = () => {
           </button>
         </div>
 
-        {/* Stats — hanya Total */}
+        {/* Stats */}
         <div className="panel-stats">
           <div className="stat-card">
             <span className="stat-label">Total</span>
