@@ -3,9 +3,9 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: May 18, 2026 at 04:09 PM
+-- Generation Time: May 20, 2026 at 03:19 PM
 -- Server version: 10.4.32-MariaDB
--- PHP Version: 8.2.12
+-- PHP Version: 8.0.30
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -48,8 +48,18 @@ CREATE TABLE `creators` (
   `followers_ig` int(11) NOT NULL,
   `followers_tiktok` int(11) NOT NULL,
   `followers_x` int(11) NOT NULL,
-  `roles` set('Actor','Host','MC','Content Creator','Model','Momfluencer','test') NOT NULL
+  `roles` set('Actor','Host','MC','Content Creator','Model','Momfluencer','test') NOT NULL,
+  `url_instagram` varchar(255) DEFAULT NULL,
+  `url_tiktok` varchar(255) DEFAULT NULL,
+  `url_x` varchar(255) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `creators`
+--
+
+INSERT INTO `creators` (`id`, `profile_image`, `name`, `followers_ig`, `followers_tiktok`, `followers_x`, `roles`, `url_instagram`, `url_tiktok`, `url_x`) VALUES
+(2, '/uploads/1779281364289.jpeg', 'Christopher Justine Wijaya', 100, 100, 100, 'Content Creator', 'https://www.instagram.com/justine.wijaya/', 'https://www.tiktok.com/@justinewijaya?lang=en-GB', NULL);
 
 -- --------------------------------------------------------
 
@@ -61,6 +71,13 @@ CREATE TABLE `login` (
   `username` varchar(255) NOT NULL,
   `password` varchar(255) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `login`
+--
+
+INSERT INTO `login` (`username`, `password`) VALUES
+('admin', 'admin123');
 
 -- --------------------------------------------------------
 
@@ -99,6 +116,14 @@ CREATE TABLE `website_assets` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
+-- Dumping data for table `website_assets`
+--
+
+INSERT INTO `website_assets` (`image_type`, `image_url`) VALUES
+('hero_banner', '/uploads/1779125022897.jpg'),
+('talent_showcase', '/uploads/1779280607233.mov');
+
+--
 -- Indexes for dumped tables
 --
 
@@ -134,7 +159,7 @@ ALTER TABLE `website_assets`
 -- AUTO_INCREMENT for table `creators`
 --
 ALTER TABLE `creators`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT for table `testimonials`
