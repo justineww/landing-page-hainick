@@ -4,6 +4,8 @@ const cors = require("cors");
 const bodyParser = require("body-parser");
 const multer = require("multer");
 const path = require("path");
+const sharp = require("sharp");
+const fs = require("fs");
 
 const app = express();
 
@@ -39,6 +41,31 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
+
+// ── Convert to .webp and delete original ─────────────────────────────────────
+const convertToWebp = async (filePath) => {
+  const normalizedPath = filePath.replace(/\\/g, "/");
+
+  const webpFilename =
+    path.basename(normalizedPath, path.extname(normalizedPath)) + ".webp";
+  const webpPath = path.join("public/uploads", webpFilename);
+
+  // ✅ Read into buffer first so sharp releases the file handle before we delete
+  const inputBuffer = fs.readFileSync(normalizedPath);
+
+  await sharp(inputBuffer).webp({ quality: 80 }).toFile(webpPath);
+
+  // File handle is now fully released — safe to delete original
+  try {
+    fs.unlinkSync(normalizedPath);
+  } catch (err) {
+    console.error("Failed to delete original file:", err.message);
+  }
+
+  return `/uploads/${webpFilename}`;
+};
+
+
 // ── Login ─────────────────────────────────────────────────────────────────────
 app.get("/api/login", (req, res) => {
   const { username, password } = req.query;
@@ -51,6 +78,7 @@ app.get("/api/login", (req, res) => {
     return res.status(200).json({ message: "Login berhasil!" });
   });
 });
+
 
 // ── Load ──────────────────────────────────────────────────────────────────────
 app.get("/api/creators", (req, res) => {
@@ -97,8 +125,9 @@ app.get("/api/contacts", (req, res) => {
   });
 });
 
+
 // ── Create ────────────────────────────────────────────────────────────────────
-app.post("/api/create-creators", upload.single("image"), (req, res) => {
+app.post("/api/create-creators", upload.single("image"), async (req, res) => {
   const name = req.body.name;
   if (!name) return res.status(400).json({ error: "Nama harus diisi" });
 
@@ -108,7 +137,13 @@ app.post("/api/create-creators", upload.single("image"), (req, res) => {
   const urlIg = req.body.url_instagram || "";
   const urlTiktok = req.body.url_tiktok || "";
   const urlX = req.body.url_x || "";
-  const image = req.file ? `/uploads/${req.file.filename}` : null;
+
+  // ✅ FIXED: convertToWebp returns the full URL path directly
+  let image = null;
+  if (req.file) {
+    image = await convertToWebp(req.file.path);
+  }
+
   const roles = req.body.roles
     ? req.body.roles
         .split(",")
@@ -134,47 +169,55 @@ app.post("/api/create-creators", upload.single("image"), (req, res) => {
       res
         .status(201)
         .json({ message: "Creator berhasil ditambahkan", id: result.insertId });
-    },
-  );
-});
-
-app.post("/api/create-hainick-assets", upload.single("image"), (req, res) => {
-  const imageType = req.body.image_type;
-  const image = req.file ? `/uploads/${req.file.filename}` : null;
-
-  if (!imageType)
-    return res.status(400).json({ error: "Tipe gambar harus diisi" });
-  if (!image) return res.status(400).json({ error: "Gambar harus diunggah" });
-
-  db.query(
-    "INSERT INTO website_assets (image_type, image_url) VALUES (?, ?)",
-    [imageType, image],
-    (err, result) => {
-      if (err)
-        return res
-          .status(500)
-          .json({ error: "Gagal menambahkan hainick update" });
-      res
-        .status(201)
-        .json({
-          message: "Hainick update berhasil ditambahkan",
-          imagetype: imageType,
-          imageUrl: image,
-        });
-    },
+    }
   );
 });
 
 app.post(
-  "/api/create-updates-section-image",
+  "/api/create-hainick-assets",
   upload.single("image"),
-  (req, res) => {
+  async (req, res) => {
     const imageType = req.body.image_type;
-    const image = req.file ? `/uploads/${req.file.filename}` : null;
 
     if (!imageType)
       return res.status(400).json({ error: "Tipe gambar harus diisi" });
-    if (!image) return res.status(400).json({ error: "Gambar harus diunggah" });
+    if (!req.file)
+      return res.status(400).json({ error: "Gambar harus diunggah" });
+
+    // ✅ FIXED: convertToWebp returns the full URL path directly
+    const image = await convertToWebp(req.file.path);
+
+    db.query(
+      "INSERT INTO website_assets (image_type, image_url) VALUES (?, ?)",
+      [imageType, image],
+      (err, result) => {
+        if (err)
+          return res
+            .status(500)
+            .json({ error: "Gagal menambahkan hainick update" });
+        res.status(201).json({
+          message: "Hainick update berhasil ditambahkan",
+          imagetype: imageType,
+          imageUrl: image,
+        });
+      }
+    );
+  }
+);
+
+app.post(
+  "/api/create-updates-section-image",
+  upload.single("image"),
+  async (req, res) => {
+    const imageType = req.body.image_type;
+
+    if (!imageType)
+      return res.status(400).json({ error: "Tipe gambar harus diisi" });
+    if (!req.file)
+      return res.status(400).json({ error: "Gambar harus diunggah" });
+
+    // ✅ FIXED: convertToWebp returns the full URL path directly
+    const image = await convertToWebp(req.file.path);
 
     db.query(
       "INSERT INTO updates_section (image_type, image_url) VALUES (?, ?)",
@@ -184,16 +227,14 @@ app.post(
           return res
             .status(500)
             .json({ error: "Gagal menambahkan updates section" });
-        res
-          .status(201)
-          .json({
-            message: "Updates section berhasil ditambahkan",
-            imagetype: imageType,
-            imageUrl: image,
-          });
-      },
+        res.status(201).json({
+          message: "Updates section berhasil ditambahkan",
+          imagetype: imageType,
+          imageUrl: image,
+        });
+      }
     );
-  },
+  }
 );
 
 app.post("/api/create-updates-section-description", (req, res) => {
@@ -206,36 +247,43 @@ app.post("/api/create-updates-section-description", (req, res) => {
         return res
           .status(500)
           .json({ error: "Gagal menambahkan deskripsi updates section" });
-      res
-        .status(201)
-        .json({
-          message: "Deskripsi updates section berhasil ditambahkan",
-          id: result.insertId,
-        });
-    },
+      res.status(201).json({
+        message: "Deskripsi updates section berhasil ditambahkan",
+        id: result.insertId,
+      });
+    }
   );
 });
 
-app.post("/api/create-testimonials", upload.single("image"), (req, res) => {
-  const name = req.body.name;
-  const testimonial = req.body.testimonial;
-  const image = req.file ? `/uploads/${req.file.filename}` : null;
+app.post(
+  "/api/create-testimonials",
+  upload.single("image"),
+  async (req, res) => {
+    const name = req.body.name;
+    const testimonial = req.body.testimonial;
 
-  db.query(
-    "INSERT INTO testimonials (profile_image, testimonial, name) VALUES (?, ?, ?)",
-    [image, testimonial, name],
-    (err, result) => {
-      if (err)
-        return res.status(500).json({ error: "Gagal menambahkan testimonial" });
-      res
-        .status(201)
-        .json({
+    // ✅ FIXED: convertToWebp returns the full URL path directly
+    let image = null;
+    if (req.file) {
+      image = await convertToWebp(req.file.path);
+    }
+
+    db.query(
+      "INSERT INTO testimonials (profile_image, testimonial, name) VALUES (?, ?, ?)",
+      [image, testimonial, name],
+      (err, result) => {
+        if (err)
+          return res
+            .status(500)
+            .json({ error: "Gagal menambahkan testimonial" });
+        res.status(201).json({
           message: "Testimonial berhasil ditambahkan",
           id: result.insertId,
         });
-    },
-  );
-});
+      }
+    );
+  }
+);
 
 app.post("/api/create-role", (req, res) => {
   const { newRole } = req.body;
@@ -262,77 +310,82 @@ app.post("/api/create-role", (req, res) => {
   });
 });
 
+
 // ── Update ────────────────────────────────────────────────────────────────────
+app.put(
+  "/api/update-creators/:id",
+  upload.single("image"),
+  async (req, res) => {
+    const id = req.params.id;
 
-// FIX UTAMA: Semua field di-update dalam SATU query, bukan query terpisah
-app.put("/api/update-creators/:id", upload.single("image"), (req, res) => {
-  const id = req.params.id;
+    const name = req.body.name;
+    const instagram = Number(req.body.followers_instagram) || 0;
+    const tiktok = Number(req.body.followers_tiktok) || 0;
+    const xFollowers = Number(req.body.followers_x) || 0;
+    const urlIg = req.body.url_instagram || "";
+    const urlTiktok = req.body.url_tiktok || "";
+    const urlX = req.body.url_x || "";
+    const roles = req.body.roles
+      ? req.body.roles
+          .split(",")
+          .map((r) => r.trim())
+          .filter(Boolean)
+          .join(",")
+      : "";
 
-  const name = req.body.name;
-  const instagram = Number(req.body.followers_instagram) || 0;
-  const tiktok = Number(req.body.followers_tiktok) || 0;
-  const xFollowers = Number(req.body.followers_x) || 0;
-  const urlIg = req.body.url_instagram || "";
-  const urlTiktok = req.body.url_tiktok || "";
-  const urlX = req.body.url_x || "";
-  const roles = req.body.roles
-    ? req.body.roles
-        .split(",")
-        .map((r) => r.trim())
-        .filter(Boolean)
-        .join(",")
-    : "";
+    const fields = [];
+    const values = [];
 
-  // Bangun SET clause secara dinamis
-  const fields = [];
-  const values = [];
-
-  if (name) {
-    fields.push("name = ?");
-    values.push(name);
-  }
-  fields.push("followers_ig = ?");
-  values.push(instagram);
-  fields.push("followers_tiktok = ?");
-  values.push(tiktok);
-  fields.push("followers_x = ?");
-  values.push(xFollowers);
-  if (urlIg) {
-    fields.push("url_instagram = ?");
-    values.push(urlIg);
-  }
-  if (urlTiktok) {
-    fields.push("url_tiktok = ?");
-    values.push(urlTiktok);
-  }
-  if (urlX) {
-    fields.push("url_x = ?");
-    values.push(urlX);
-  }
-  if (roles) {
-    fields.push("roles = ?");
-    values.push(roles);
-  }
-  if (req.file) {
-    fields.push("profile_image = ?");
-    values.push(`/uploads/${req.file.filename}`);
-  }
-
-  if (fields.length === 0) {
-    return res.status(400).json({ error: "Tidak ada data yang diperbarui" });
-  }
-
-  values.push(id);
-  const sql = `UPDATE creators SET ${fields.join(", ")} WHERE id = ?`;
-
-  db.query(sql, values, (err) => {
-    if (err) {
-      console.error("❌ Error updating creator:", err);
-      return res.status(500).json({ error: "Gagal memperbarui creator" });
+    if (name) {
+      fields.push("name = ?");
+      values.push(name);
     }
-    res.status(200).json({ message: "Creator berhasil diperbarui" });
-  });
-});
+    fields.push("followers_ig = ?");
+    values.push(instagram);
+    fields.push("followers_tiktok = ?");
+    values.push(tiktok);
+    fields.push("followers_x = ?");
+    values.push(xFollowers);
+    if (urlIg) {
+      fields.push("url_instagram = ?");
+      values.push(urlIg);
+    }
+    if (urlTiktok) {
+      fields.push("url_tiktok = ?");
+      values.push(urlTiktok);
+    }
+    if (urlX) {
+      fields.push("url_x = ?");
+      values.push(urlX);
+    }
+    if (roles) {
+      fields.push("roles = ?");
+      values.push(roles);
+    }
+
+    // ✅ FIXED: convertToWebp returns the full URL path directly
+    if (req.file) {
+      const profileImage = await convertToWebp(req.file.path);
+      fields.push("profile_image = ?");
+      values.push(profileImage);
+    }
+
+    if (fields.length === 0) {
+      return res.status(400).json({ error: "Tidak ada data yang diperbarui" });
+    }
+
+    values.push(id);
+    const sql = `UPDATE creators SET ${fields.join(", ")} WHERE id = ?`;
+
+    db.query(sql, values, (err) => {
+      if (err) {
+        console.error("❌ Error updating creator:", err);
+        return res.status(500).json({ error: "Gagal memperbarui creator" });
+      }
+      res.status(200).json({ message: "Creator berhasil diperbarui" });
+    });
+  }
+);
 
 app.put("/api/remove-role/:id", (req, res) => {
   const id = req.params.id;
@@ -353,7 +406,7 @@ app.put("/api/remove-role/:id", (req, res) => {
         if (err2)
           return res.status(500).json({ error: "Gagal menghapus role" });
         res.json({ message: "Role removed" });
-      },
+      }
     );
   });
 });
@@ -361,11 +414,14 @@ app.put("/api/remove-role/:id", (req, res) => {
 app.put(
   "/api/update-hainick-assets/:image_type",
   upload.single("image"),
-  (req, res) => {
+  async (req, res) => {
     const imageType = req.params.image_type;
-    const image = req.file ? `/uploads/${req.file.filename}` : null;
 
-    if (!image) return res.status(400).json({ error: "Gambar harus diunggah" });
+    if (!req.file)
+      return res.status(400).json({ error: "Gambar harus diunggah" });
+
+    // ✅ FIXED: convertToWebp returns the full URL path directly
+    const image = await convertToWebp(req.file.path);
 
     db.query(
       "UPDATE website_assets SET image_url = ? WHERE image_type = ?",
@@ -376,19 +432,22 @@ app.put(
             .status(500)
             .json({ error: "Gagal memperbarui aset website" });
         res.status(200).json({ message: "Gambar website berhasil diperbarui" });
-      },
+      }
     );
-  },
+  }
 );
 
 app.put(
   "/api/update-updates-section-image/:image_type",
   upload.single("image"),
-  (req, res) => {
+  async (req, res) => {
     const imageType = req.params.image_type;
-    const image = req.file ? `/uploads/${req.file.filename}` : null;
 
-    if (!image) return res.status(400).json({ error: "Gambar harus diunggah" });
+    if (!req.file)
+      return res.status(400).json({ error: "Gambar harus diunggah" });
+
+    // ✅ FIXED: convertToWebp returns the full URL path directly
+    const image = await convertToWebp(req.file.path);
 
     db.query(
       "UPDATE updates_section SET image_url = ? WHERE image_type = ?",
@@ -401,9 +460,9 @@ app.put(
         res
           .status(200)
           .json({ message: "Gambar updates section berhasil diperbarui" });
-      },
+      }
     );
-  },
+  }
 );
 
 app.put("/api/update-updates-section-description", (req, res) => {
@@ -422,58 +481,67 @@ app.put("/api/update-updates-section-description", (req, res) => {
       res
         .status(200)
         .json({ message: "Deskripsi updates section berhasil diperbarui" });
-    },
+    }
   );
 });
 
-// FIX: update-testimonials juga digabung jadi satu query
-app.put("/api/update-testimonials/:id", upload.single("image"), (req, res) => {
-  const id = req.params.id;
-  const name = req.body.name;
-  const testimonial = req.body.testimonial;
+app.put(
+  "/api/update-testimonials/:id",
+  upload.single("image"),
+  async (req, res) => {
+    const id = req.params.id;
+    const name = req.body.name;
+    const testimonial = req.body.testimonial;
 
-  const fields = [];
-  const values = [];
+    const fields = [];
+    const values = [];
 
-  if (name) {
-    fields.push("name = ?");
-    values.push(name);
+    if (name) {
+      fields.push("name = ?");
+      values.push(name);
+    }
+    if (testimonial) {
+      fields.push("testimonial = ?");
+      values.push(testimonial);
+    }
+
+    // ✅ FIXED: convertToWebp returns the full URL path directly
+    if (req.file) {
+      const profileImage = await convertToWebp(req.file.path);
+      fields.push("profile_image = ?");
+      values.push(profileImage);
+    }
+
+    if (fields.length === 0) {
+      return res.status(400).json({ error: "Tidak ada data yang diperbarui" });
+    }
+
+    values.push(id);
+    db.query(
+      `UPDATE testimonials SET ${fields.join(", ")} WHERE id = ?`,
+      values,
+      (err) => {
+        if (err)
+          return res
+            .status(500)
+            .json({ error: "Gagal memperbarui testimonial" });
+        res.status(200).json({ message: "Testimonial berhasil diperbarui" });
+      }
+    );
   }
-  if (testimonial) {
-    fields.push("testimonial = ?");
-    values.push(testimonial);
-  }
-  if (req.file) {
-    fields.push("profile_image = ?");
-    values.push(`/uploads/${req.file.filename}`);
-  }
+);
 
-  if (fields.length === 0) {
-    return res.status(400).json({ error: "Tidak ada data yang diperbarui" });
-  }
-
-  values.push(id);
-  db.query(
-    `UPDATE testimonials SET ${fields.join(", ")} WHERE id = ?`,
-    values,
-    (err) => {
-      if (err)
-        return res.status(500).json({ error: "Gagal memperbarui testimonial" });
-      res.status(200).json({ message: "Testimonial berhasil diperbarui" });
-    },
-  );
-});
-
-// FIX: update-contacts juga digabung jadi satu query
-app.put("/api/update-contacts", upload.single("logo"), (req, res) => {
+app.put("/api/update-contacts", upload.single("logo"), async (req, res) => {
   const { instagram, gmail, phone_number1, phone_number2 } = req.body;
 
   const fields = [];
   const values = [];
 
+  // ✅ FIXED: convertToWebp returns the full URL path directly
   if (req.file) {
+    const logo = await convertToWebp(req.file.path);
     fields.push("logo = ?");
-    values.push(`/uploads/${req.file.filename}`);
+    values.push(logo);
   }
   if (instagram) {
     fields.push("instagram = ?");
@@ -502,6 +570,7 @@ app.put("/api/update-contacts", upload.single("logo"), (req, res) => {
   });
 });
 
+
 // ── Delete ────────────────────────────────────────────────────────────────────
 app.delete("/api/delete-creators/:id", (req, res) => {
   db.query("DELETE FROM creators WHERE id = ?", [req.params.id], (err) => {
@@ -520,7 +589,7 @@ app.delete("/api/delete-hainick-assets/:image_type", (req, res) => {
           .status(500)
           .json({ error: "Gagal menghapus hainick update" });
       res.status(200).json({ message: "Hainick update berhasil dihapus" });
-    },
+    }
   );
 });
 
@@ -534,7 +603,7 @@ app.delete("/api/delete-updates-section/:image_type", (req, res) => {
           .status(500)
           .json({ error: "Gagal menghapus update section" });
       res.status(200).json({ message: "Update section berhasil dihapus" });
-    },
+    }
   );
 });
 
@@ -549,7 +618,7 @@ app.delete("/api/delete-updates-section-description", (req, res) => {
       res
         .status(200)
         .json({ message: "Deskripsi update section berhasil dihapus" });
-    },
+    }
   );
 });
 
@@ -567,6 +636,7 @@ app.delete("/api/delete-contacts", (req, res) => {
     res.status(200).json({ message: "Kontak berhasil dihapus" });
   });
 });
+
 
 app.listen(8000, () => {
   console.log("🚀 Server berjalan di http://localhost:8000");

@@ -1,5 +1,7 @@
 api-tester.html
 node_modules/
+package-lock.json
+package.json
 .vscode/
 public/
 uploads/
