@@ -1,18 +1,4 @@
-import { useState } from "react";
-
-// =============================================
-// KONFIGURASI KONTAK - Edit sesuai kebutuhan
-// =============================================
-
-const CONTACT_INFO = {
-  brandName: "hainick.",
-  instagram: "@hainickkreatif",
-  email: "hainick.creativemanagement@gmail.com",
-  phones: [
-    { number: "+62 878-8791-0333", person: "Angga" },
-    { number: "+62 821-363-58570", person: "Nikita" },
-  ],
-};
+import { useState, useEffect } from "react";
 
 // =============================================
 // ICON COMPONENTS
@@ -67,41 +53,52 @@ const PhoneIcon = () => (
 );
 
 // =============================================
-// CONTACT PANEL (kanan)
+// CONTACT PANEL (kanan) — data dari API
 // =============================================
 
-function ContactPanel() {
+function ContactPanel({ contact }) {
+  if (!contact) return null;
+
+  // Kolom DB: instagram_account, gmail_account, phone_number1, phone_number2
+  const phones = [contact.phone_number1, contact.phone_number2].filter(Boolean);
+
   return (
     <div className="contact-panel">
-      <span className="panel-brand">{CONTACT_INFO.brandName}</span>
+      <span className="panel-brand">hainick.</span>
 
       <div className="panel-rows">
-        <div className="panel-row">
-          <span className="panel-icon">
-            <InstagramIcon />
-          </span>
-          <span className="panel-text">{CONTACT_INFO.instagram}</span>
-        </div>
-
-        <div className="panel-row">
-          <span className="panel-icon">
-            <EmailIcon />
-          </span>
-          <span className="panel-text">{CONTACT_INFO.email}</span>
-        </div>
-
-        <div className="panel-row panel-row-phone">
-          <span className="panel-icon panel-icon-top">
-            <PhoneIcon />
-          </span>
-          <div className="panel-phones">
-            {CONTACT_INFO.phones.map((p, i) => (
-              <span key={i} className="panel-text panel-phone-line">
-                <strong>{p.number}</strong> - {p.person}
-              </span>
-            ))}
+        {contact.instagram_account && (
+          <div className="panel-row">
+            <span className="panel-icon">
+              <InstagramIcon />
+            </span>
+            <span className="panel-text">{contact.instagram_account}</span>
           </div>
-        </div>
+        )}
+
+        {contact.gmail_account && (
+          <div className="panel-row">
+            <span className="panel-icon">
+              <EmailIcon />
+            </span>
+            <span className="panel-text">{contact.gmail_account}</span>
+          </div>
+        )}
+
+        {phones.length > 0 && (
+          <div className="panel-row panel-row-phone">
+            <span className="panel-icon panel-icon-top">
+              <PhoneIcon />
+            </span>
+            <div className="panel-phones">
+              {phones.map((num, i) => (
+                <span key={i} className="panel-text panel-phone-line">
+                  <strong>{num}</strong>
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -128,7 +125,6 @@ function ContactForm() {
     setStatus("loading");
 
     // TODO: ganti dengan actual API call ke backend
-    // Contoh:
     // const res = await fetch("/api/contact", {
     //   method: "POST",
     //   headers: { "Content-Type": "application/json" },
@@ -136,9 +132,9 @@ function ContactForm() {
     // });
     // if (res.ok) setStatus("success"); else setStatus("error");
 
-    // Simulasi sementara (hapus setelah backend jadi)
+    // Simulasi sementara
     setTimeout(() => {
-      console.log("Form data (akan dikirim ke backend):", form);
+      console.log("Form data:", form);
       setStatus("success");
       setForm({ firstName: "", lastName: "", email: "", message: "" });
       setTimeout(() => setStatus(null), 3000);
@@ -215,10 +211,29 @@ function ContactForm() {
 }
 
 // =============================================
-// KOMPONEN UTAMA
+// KOMPONEN UTAMA — fetch dari /api/contacts
 // =============================================
 
 export default function ContactSection() {
+  const [contact, setContact] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/contacts")
+      .then((r) => {
+        if (!r.ok) throw new Error("Gagal fetch contacts");
+        return r.json();
+      })
+      .then((data) => {
+        // Ambil baris pertama dari tabel contacts
+        // Kolom DB: instagram_account, gmail_account, phone_number1, phone_number2
+        const row = Array.isArray(data) ? (data[0] ?? null) : data;
+        setContact(row);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
   return (
     <>
       <style>{`
@@ -320,10 +335,7 @@ export default function ContactSection() {
         }
         .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
-        .form-status {
-          font-size: 13px;
-          font-weight: 600;
-        }
+        .form-status { font-size: 13px; font-weight: 600; }
         .form-status-ok  { color: #16a34a; }
         .form-status-err { color: #dc2626; }
 
@@ -375,8 +387,28 @@ export default function ContactSection() {
           flex-direction: column;
           gap: 4px;
         }
-        .panel-phone-line {
-          display: block;
+        .panel-phone-line { display: block; }
+
+        /* ── SKELETON LOADER ── */
+        .contact-skeleton {
+          display: flex;
+          flex-direction: column;
+          gap: 16px;
+          padding: 32px 28px;
+        }
+        .skeleton-line {
+          height: 14px;
+          border-radius: 6px;
+          background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+          background-size: 200% 100%;
+          animation: shimmer 1.4s infinite;
+        }
+        .skeleton-line.short { width: 40%; }
+        .skeleton-line.mid   { width: 65%; }
+        .skeleton-line.long  { width: 85%; }
+        @keyframes shimmer {
+          0%   { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
         }
 
         /* ── RESPONSIVE ── */
@@ -385,10 +417,7 @@ export default function ContactSection() {
           .contact-section { padding: 48px 20px; }
         }
         @media (max-width: 768px) {
-          .contact-layout {
-            grid-template-columns: 1fr;
-            gap: 32px;
-          }
+          .contact-layout { grid-template-columns: 1fr; gap: 32px; }
           .contact-section { padding: 40px 16px; }
           .contact-panel { padding: 0; }
           .panel-brand { font-size: 22px; }
@@ -413,7 +442,21 @@ export default function ContactSection() {
 
         <div className="contact-layout">
           <ContactForm />
-          <ContactPanel />
+
+          {/* Panel kanan: skeleton saat loading, data saat sudah ada */}
+          {loading ? (
+            <div className="contact-skeleton">
+              <div
+                className="skeleton-line short"
+                style={{ height: "22px", marginBottom: "4px" }}
+              />
+              <div className="skeleton-line mid" />
+              <div className="skeleton-line long" />
+              <div className="skeleton-line mid" />
+            </div>
+          ) : (
+            <ContactPanel contact={contact} />
+          )}
         </div>
       </section>
     </>

@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from "react";
 
 const API = "http://localhost:8000";
 
-// ─── Helpers ───────────────────────────────────────────────────────────────
 const fmtPhoto = (url) =>
   url ? (url.startsWith("http") ? url : `${API}${url}`) : null;
 
@@ -118,12 +117,11 @@ export const TestimonyPanel = ({ onDataChange }) => {
   const [data, setData] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
-  const [modal, setModal] = useState(null); // null | "add" | "edit"
+  const [modal, setModal] = useState(null);
   const [selected, setSelected] = useState(null);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
 
-  // form state
   const [fName, setFName] = useState("");
   const [fText, setFText] = useState("");
   const [fFile, setFFile] = useState(null);
@@ -137,7 +135,7 @@ export const TestimonyPanel = ({ onDataChange }) => {
       const json = await res.json();
       const cleanData = Array.isArray(json) ? json : [];
       setData(cleanData);
-      if (onDataChange) onDataChange(); // Beritahu section luar jika ada perubahan data
+      if (onDataChange) onDataChange();
     } catch {
       showToast("Gagal memuat data.", "error");
     } finally {
@@ -170,14 +168,12 @@ export const TestimonyPanel = ({ onDataChange }) => {
     setFPreview(fmtPhoto(row.profile_image));
     setModal("edit");
   };
-
   const handleFile = (e) => {
     const f = e.target.files[0];
     if (!f) return;
     setFFile(f);
     setFPreview(URL.createObjectURL(f));
   };
-
   const handleSave = async () => {
     if (!fName.trim() || !fText.trim()) {
       showToast("Nama dan testimoni wajib diisi.", "error");
@@ -188,7 +184,6 @@ export const TestimonyPanel = ({ onDataChange }) => {
     fd.append("name", fName.trim());
     fd.append("testimonial", fText.trim());
     if (fFile) fd.append("image", fFile);
-
     try {
       const url =
         modal === "add"
@@ -210,7 +205,6 @@ export const TestimonyPanel = ({ onDataChange }) => {
       setSaving(false);
     }
   };
-
   const handleDelete = async (id) => {
     if (!window.confirm("Yakin hapus testimony ini?")) return;
     try {
@@ -230,7 +224,6 @@ export const TestimonyPanel = ({ onDataChange }) => {
       d.name?.toLowerCase().includes(search.toLowerCase()) ||
       d.testimonial?.toLowerCase().includes(search.toLowerCase()),
   );
-
   const total = data.length;
 
   return (
@@ -571,6 +564,238 @@ const LOGOS = [
   },
 ];
 
+// ─── Testimony Carousel ────────────────────────────────────────────────────
+function TestimonyCarousel({ testimonials }) {
+  const CARDS_PER_VIEW_MAP = { xl: 4, lg: 3, md: 2, sm: 1 };
+  const trackRef = useRef(null);
+  const [cardsPerView, setCardsPerView] = useState(4);
+  const [current, setCurrent] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartX = useRef(0);
+  const dragDeltaX = useRef(0);
+  const autoTimer = useRef(null);
+
+  const total = testimonials.length;
+  const maxIndex = Math.max(0, total - cardsPerView);
+
+  // Responsive cards per view
+  useEffect(() => {
+    const update = () => {
+      const w = window.innerWidth;
+      if (w >= 1024) setCardsPerView(4);
+      else if (w >= 768) setCardsPerView(3);
+      else if (w >= 480) setCardsPerView(2);
+      else setCardsPerView(1);
+    };
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, []);
+
+  // Clamp current when cardsPerView changes
+  useEffect(() => {
+    setCurrent((c) => Math.min(c, Math.max(0, total - cardsPerView)));
+  }, [cardsPerView, total]);
+
+  // Auto-slide only if more cards than view
+  useEffect(() => {
+    if (total <= cardsPerView) return;
+    autoTimer.current = setInterval(() => {
+      setCurrent((c) => (c >= maxIndex ? 0 : c + 1));
+    }, 3500);
+    return () => clearInterval(autoTimer.current);
+  }, [total, cardsPerView, maxIndex]);
+
+  const resetTimer = () => {
+    clearInterval(autoTimer.current);
+    if (total > cardsPerView) {
+      autoTimer.current = setInterval(() => {
+        setCurrent((c) => (c >= maxIndex ? 0 : c + 1));
+      }, 3500);
+    }
+  };
+
+  const goTo = (idx) => {
+    const clamped = Math.max(0, Math.min(idx, maxIndex));
+    setCurrent(clamped);
+    resetTimer();
+  };
+
+  // Drag / swipe handlers
+  const onDragStart = (clientX) => {
+    setIsDragging(true);
+    dragStartX.current = clientX;
+    dragDeltaX.current = 0;
+    clearInterval(autoTimer.current);
+  };
+  const onDragMove = (clientX) => {
+    if (!isDragging) return;
+    dragDeltaX.current = clientX - dragStartX.current;
+  };
+  const onDragEnd = () => {
+    if (!isDragging) return;
+    setIsDragging(false);
+    const threshold = 60;
+    if (dragDeltaX.current < -threshold) goTo(current + 1);
+    else if (dragDeltaX.current > threshold) goTo(current - 1);
+    else resetTimer();
+  };
+
+  // Card width as percentage of track
+  const cardWidthPct = 100 / cardsPerView;
+  const translateX = -(current * cardWidthPct);
+
+  return (
+    <div
+      style={{
+        position: "relative",
+        overflow: "hidden",
+        width: "100%",
+        userSelect: "none",
+      }}
+    >
+      {/* Slide track */}
+      <div
+        ref={trackRef}
+        style={{
+          display: "flex",
+          transition: isDragging
+            ? "none"
+            : "transform 0.45s cubic-bezier(0.4,0,0.2,1)",
+          transform: `translateX(${translateX}%)`,
+          cursor: isDragging ? "grabbing" : "grab",
+          willChange: "transform",
+        }}
+        onMouseDown={(e) => onDragStart(e.clientX)}
+        onMouseMove={(e) => onDragMove(e.clientX)}
+        onMouseUp={onDragEnd}
+        onMouseLeave={onDragEnd}
+        onTouchStart={(e) => onDragStart(e.touches[0].clientX)}
+        onTouchMove={(e) => onDragMove(e.touches[0].clientX)}
+        onTouchEnd={onDragEnd}
+      >
+        {testimonials.map((t) => {
+          const photoUrl = fmtPhoto(t.profile_image);
+          return (
+            <div
+              key={t.id}
+              style={{
+                minWidth: `${cardWidthPct}%`,
+                boxSizing: "border-box",
+                padding: "0 10px",
+              }}
+            >
+              <div className="testimony-card">
+                {photoUrl ? (
+                  <img src={photoUrl} alt={t.name} className="card-avatar" />
+                ) : (
+                  <div className="card-avatar-placeholder">
+                    {(t.name || "?").charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <p className="card-quote">"{t.testimonial}"</p>
+                <p className="card-name">— {t.name}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Dot indicators — only show when sliding needed */}
+      {total > cardsPerView && (
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "center",
+            gap: 8,
+            marginTop: 24,
+          }}
+        >
+          {Array.from({ length: maxIndex + 1 }).map((_, i) => (
+            <button
+              key={i}
+              onClick={() => goTo(i)}
+              aria-label={`Slide ${i + 1}`}
+              style={{
+                width: current === i ? 24 : 8,
+                height: 8,
+                borderRadius: 4,
+                border: "none",
+                background: current === i ? "#1a2744" : "#d1d5db",
+                cursor: "pointer",
+                padding: 0,
+                transition: "all 0.3s ease",
+              }}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Prev / Next arrows — only show when needed */}
+      {total > cardsPerView && (
+        <>
+          <button
+            onClick={() => goTo(current - 1)}
+            disabled={current === 0}
+            aria-label="Previous"
+            style={{
+              position: "absolute",
+              top: "50%",
+              left: 0,
+              transform: "translateY(-60%)",
+              width: 36,
+              height: 36,
+              borderRadius: "50%",
+              border: "1.5px solid #e5e7eb",
+              background: "#fff",
+              cursor: current === 0 ? "not-allowed" : "pointer",
+              opacity: current === 0 ? 0.35 : 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 16,
+              color: "#1a2744",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+              transition: "opacity 0.2s",
+              zIndex: 2,
+            }}
+          >
+            ‹
+          </button>
+          <button
+            onClick={() => goTo(current + 1)}
+            disabled={current >= maxIndex}
+            aria-label="Next"
+            style={{
+              position: "absolute",
+              top: "50%",
+              right: 0,
+              transform: "translateY(-60%)",
+              width: 36,
+              height: 36,
+              borderRadius: "50%",
+              border: "1.5px solid #e5e7eb",
+              background: "#fff",
+              cursor: current >= maxIndex ? "not-allowed" : "pointer",
+              opacity: current >= maxIndex ? 0.35 : 1,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 16,
+              color: "#1a2744",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+              transition: "opacity 0.2s",
+              zIndex: 2,
+            }}
+          >
+            ›
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Public Component (TestimonySection) ──────────────────────────────
 export default function TestimonySection() {
   const [testimonials, setTestimonials] = useState([]);
@@ -596,12 +821,29 @@ export default function TestimonySection() {
     <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
-        .testimony-section { font-family: 'Plus Jakarta Sans', sans-serif; background: #ffffff; padding: 64px 24px 56px; box-sizing: border-box; }
+        .testimony-section {
+          font-family: 'Plus Jakarta Sans', sans-serif;
+          background: #ffffff;
+          padding: 64px 40px 56px;
+          box-sizing: border-box;
+        }
         .testimony-header { text-align: center; margin-bottom: 48px; }
         .testimony-title { font-size: clamp(1.4rem, 3vw, 2rem); font-weight: 800; letter-spacing: -0.03em; color: #0a0a0a; margin: 0 0 10px; }
         .testimony-subtitle { font-size: 14px; color: #6b7280; font-weight: 400; margin: 0; }
-        .testimony-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; max-width: 1160px; margin: 0 auto; }
-        .testimony-card { background: #fff; border: 1px solid #e4e9f7; border-radius: 18px; padding: 24px 20px 20px; box-shadow: 0 4px 20px rgba(13,27,75,0.07); box-sizing: border-box; display: flex; flex-direction: column; gap: 14px; }
+        .testimony-card {
+          background: #fff;
+          border: 1px solid #e4e9f7;
+          border-radius: 18px;
+          padding: 24px 20px 20px;
+          box-shadow: 0 4px 20px rgba(13,27,75,0.07);
+          box-sizing: border-box;
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+          height: 100%;
+          transition: box-shadow 0.2s;
+        }
+        .testimony-card:hover { box-shadow: 0 8px 32px rgba(13,27,75,0.12); }
         .card-avatar { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; border: 2.5px solid #e4e9f7; flex-shrink: 0; }
         .card-avatar-placeholder { width: 56px; height: 56px; border-radius: 50%; background: #f0f3fa; display: flex; align-items: center; justify-content: center; color: #b0bbd4; font-size: 22px; font-weight: 800; flex-shrink: 0; }
         .card-quote { font-size: 13px; color: #3d4f72; font-style: italic; line-height: 1.7; flex: 1; margin: 0; }
@@ -610,14 +852,22 @@ export default function TestimonySection() {
         .clients-row { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 32px 48px; max-width: 1160px; margin: 0 auto; }
         .client-logo { height: 36px; max-width: 120px; object-fit: contain; filter: grayscale(1) opacity(0.6); transition: filter 0.25s; }
         .client-logo:hover { filter: grayscale(0) opacity(1); }
-        
-        /* Skeleton style untuk section publik */
-        .section-skeleton { animation: pulse 1.4s infinite; background: #f3f4f6; border-radius: 12px; }
+        .section-skeleton { animation: skelPulse 1.4s infinite; background: #f3f4f6; border-radius: 12px; }
+        @keyframes skelPulse { 0%,100% { opacity:1 } 50% { opacity:0.4 } }
 
-        @media (max-width: 1024px) { .testimony-grid { grid-template-columns: repeat(2, 1fr); gap: 16px; } .testimony-section { padding: 48px 20px 48px; } }
-        @media (max-width: 768px) { .testimony-section { padding: 40px 16px 40px; } .testimony-header { margin-bottom: 32px; } .testimony-subtitle { font-size: 13px; } .clients-strip { padding: 28px 16px; } .clients-row { gap: 20px 32px; } .client-logo { height: 30px; max-width: 100px; } }
-        @media (max-width: 480px) { .testimony-grid { grid-template-columns: 1fr; gap: 14px; } .testimony-section { padding: 32px 14px 32px; } .testimony-card { padding: 20px 16px 16px; } .clients-strip { padding: 20px 14px; } .clients-row { gap: 16px 20px; } .client-logo { height: 26px; max-width: 85px; } }
-        @media (max-width: 360px) { .testimony-section { padding: 28px 12px; } .card-quote { font-size: 12.5px; } .card-name { font-size: 12px; } }
+        @media (max-width: 768px) {
+          .testimony-section { padding: 40px 24px 40px; }
+          .testimony-header { margin-bottom: 32px; }
+          .clients-strip { padding: 28px 16px; }
+          .clients-row { gap: 20px 32px; }
+          .client-logo { height: 30px; max-width: 100px; }
+        }
+        @media (max-width: 480px) {
+          .testimony-section { padding: 32px 14px 32px; }
+          .clients-strip { padding: 20px 14px; }
+          .clients-row { gap: 16px 20px; }
+          .client-logo { height: 26px; max-width: 85px; }
+        }
       `}</style>
 
       <section className="testimony-section">
@@ -629,59 +879,41 @@ export default function TestimonySection() {
           </p>
         </div>
 
-        <div className="testimony-grid">
-          {loading ? (
-            // Tampilan Loading Skeleton sewaktu fetch data dinamis
-            [1, 2, 3, 4].map((i) => (
-              <div key={i} className="testimony-card">
-                <div
-                  className="section-skeleton"
-                  style={{ width: 56, height: 56, borderRadius: "50%" }}
-                />
-                <div
-                  className="section-skeleton"
-                  style={{ height: 14, width: "90%" }}
-                />
-                <div
-                  className="section-skeleton"
-                  style={{ height: 14, width: "75%" }}
-                />
-                <div
-                  className="section-skeleton"
-                  style={{ height: 12, width: "40%", marginTop: "auto" }}
-                />
-              </div>
-            ))
-          ) : testimonials.length === 0 ? (
-            <div
-              style={{
-                gridColumn: "1 / -1",
-                textAlign: "center",
-                color: "#9ca3af",
-                padding: "2rem",
-              }}
-            >
-              Belum ada testimoni yang tersedia.
-            </div>
-          ) : (
-            testimonials.map((t) => {
-              const photoUrl = fmtPhoto(t.profile_image);
-              return (
-                <div key={t.id} className="testimony-card">
-                  {photoUrl ? (
-                    <img src={photoUrl} alt={t.name} className="card-avatar" />
-                  ) : (
-                    <div className="card-avatar-placeholder">
-                      {(t.name || "?").charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                  <p className="card-quote">"{t.testimonial}"</p>
-                  <p className="card-name">- {t.name}</p>
+        {loading ? (
+          // Skeleton grid saat loading — tetap 4 kolom, tidak overflow
+          <div style={{ display: "flex", gap: 20 }}>
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} style={{ flex: "1 0 0", minWidth: 0 }}>
+                <div className="testimony-card">
+                  <div
+                    className="section-skeleton"
+                    style={{ width: 56, height: 56, borderRadius: "50%" }}
+                  />
+                  <div
+                    className="section-skeleton"
+                    style={{ height: 14, width: "90%" }}
+                  />
+                  <div
+                    className="section-skeleton"
+                    style={{ height: 14, width: "75%" }}
+                  />
+                  <div
+                    className="section-skeleton"
+                    style={{ height: 12, width: "40%", marginTop: "auto" }}
+                  />
                 </div>
-              );
-            })
-          )}
-        </div>
+              </div>
+            ))}
+          </div>
+        ) : testimonials.length === 0 ? (
+          <div
+            style={{ textAlign: "center", color: "#9ca3af", padding: "2rem" }}
+          >
+            Belum ada testimoni yang tersedia.
+          </div>
+        ) : (
+          <TestimonyCarousel testimonials={testimonials} />
+        )}
       </section>
 
       <div className="clients-strip">

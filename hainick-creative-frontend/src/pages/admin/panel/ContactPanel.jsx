@@ -1,6 +1,322 @@
-// TODO: Sambungkan ke API backend untuk fetch & update data Contact Us
+import { useState, useEffect, useCallback } from "react";
+
+const API = "/api/contacts";
+const UPDATE_API = "/api/update-contacts";
+
+async function request(url, options = {}) {
+  const res = await fetch(url, {
+    headers: { "Content-Type": "application/json" },
+    ...options,
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.status !== 204 ? res.json() : null;
+}
+
+// Form state pakai nama field BACKEND (untuk PUT /api/update-contacts)
+const EMPTY_FORM = {
+  instagram: "",
+  gmail: "",
+  phone_number1: "",
+  phone_number2: "",
+};
+
+function ContactModal({ item, mode, onClose, onSave }) {
+  const [form, setForm] = useState(
+    item
+      ? {
+          // DB menyimpan sebagai instagram_account & gmail_account,
+          // tapi PUT /api/update-contacts menerima 'instagram' & 'gmail'
+          instagram: item.instagram_account ?? "",
+          gmail: item.gmail_account ?? "",
+          phone_number1: item.phone_number1 ?? "",
+          phone_number2: item.phone_number2 ?? "",
+        }
+      : { ...EMPTY_FORM },
+  );
+
+  const set = (key, val) => setForm((f) => ({ ...f, [key]: val }));
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSave(form);
+  };
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal-box" role="dialog" aria-modal="true">
+        <div className="modal-head">
+          <h3 className="modal-title">
+            {mode === "add" ? "➕ Tambah Kontak" : "✎ Edit Kontak"}
+          </h3>
+          <button className="modal-close" onClick={onClose} aria-label="Tutup">
+            ✕
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <div className="field">
+            <label>Instagram</label>
+            <div className="input-wrap">
+              <span className="input-icon">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <rect x="2" y="2" width="20" height="20" rx="5" />
+                  <circle cx="12" cy="12" r="4" />
+                  <circle
+                    cx="17.5"
+                    cy="6.5"
+                    r="0.8"
+                    fill="currentColor"
+                    stroke="none"
+                  />
+                </svg>
+              </span>
+              <input
+                type="text"
+                placeholder="@username"
+                value={form.instagram}
+                onChange={(e) => set("instagram", e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="field">
+            <label>Gmail / Email</label>
+            <div className="input-wrap">
+              <span className="input-icon">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <rect x="2" y="4" width="20" height="16" rx="3" />
+                  <polyline points="2,4 12,13 22,4" />
+                </svg>
+              </span>
+              <input
+                type="email"
+                placeholder="email@domain.com"
+                value={form.gmail}
+                onChange={(e) => set("gmail", e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="field">
+            <label>Nomor Telepon 1</label>
+            <div className="input-wrap">
+              <span className="input-icon">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.01 1.18 2 2 0 012 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 14.92z" />
+                </svg>
+              </span>
+              <input
+                type="text"
+                placeholder="+62 878-xxxx-xxxx"
+                value={form.phone_number1}
+                onChange={(e) => set("phone_number1", e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="field">
+            <label>Nomor Telepon 2</label>
+            <div className="input-wrap">
+              <span className="input-icon">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.01 1.18 2 2 0 012 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 14.92z" />
+                </svg>
+              </span>
+              <input
+                type="text"
+                placeholder="+62 821-xxxx-xxxx"
+                value={form.phone_number2}
+                onChange={(e) => set("phone_number2", e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="modal-foot">
+            <button type="button" className="btn btn-outline" onClick={onClose}>
+              Batal
+            </button>
+            <button type="submit" className="btn btn-primary">
+              {mode === "add" ? "➕ Tambah" : "✎ Simpan"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 const ContactPanel = () => {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [modalMode, setModalMode] = useState(null); // null | "add" | "edit"
+  const [toast, setToast] = useState({ msg: "", type: "success" });
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const rows = await request(API);
+      setData(Array.isArray(rows) ? (rows[0] ?? null) : rows);
+    } catch {
+      console.error("Gagal fetch contacts");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const showToast = (msg, type = "success") => {
+    setToast({ msg, type });
+    setTimeout(() => setToast({ msg: "", type: "success" }), 2500);
+  };
+
+  const handleSave = async (payload) => {
+    // payload berisi: { instagram, gmail, phone_number1, phone_number2 }
+    // Kedua mode (add & edit) sama-sama pakai PUT /api/update-contacts
+    // karena backend tidak menyediakan POST /api/contacts
+    try {
+      await request(UPDATE_API, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      });
+
+      // Refresh data dari DB agar tampilan sinkron dengan kolom asli
+      await fetchData();
+
+      showToast(
+        modalMode === "add"
+          ? "✓ Data kontak berhasil ditambahkan"
+          : "✓ Data kontak berhasil diperbarui",
+      );
+    } catch {
+      showToast("✕ Gagal menyimpan, coba lagi.", "error");
+    }
+    setModalMode(null);
+  };
+
+  // Tampilkan kolom menggunakan nama kolom DB (instagram_account, gmail_account)
+  const fields = [
+    {
+      key: "instagram_account",
+      label: "Instagram",
+      icon: (
+        <svg
+          width="13"
+          height="13"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <rect x="2" y="2" width="20" height="20" rx="5" />
+          <circle cx="12" cy="12" r="4" />
+          <circle
+            cx="17.5"
+            cy="6.5"
+            r="0.8"
+            fill="currentColor"
+            stroke="none"
+          />
+        </svg>
+      ),
+    },
+    {
+      key: "gmail_account",
+      label: "Gmail / Email",
+      icon: (
+        <svg
+          width="13"
+          height="13"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <rect x="2" y="4" width="20" height="16" rx="3" />
+          <polyline points="2,4 12,13 22,4" />
+        </svg>
+      ),
+    },
+    {
+      key: "phone_number1",
+      label: "Nomor Telepon 1",
+      icon: (
+        <svg
+          width="13"
+          height="13"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.01 1.18 2 2 0 012 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 14.92z" />
+        </svg>
+      ),
+    },
+    {
+      key: "phone_number2",
+      label: "Nomor Telepon 2",
+      icon: (
+        <svg
+          width="13"
+          height="13"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.01 1.18 2 2 0 012 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 14.92z" />
+        </svg>
+      ),
+    },
+  ];
+
   return (
     <>
       <style>{`
@@ -8,239 +324,254 @@ const ContactPanel = () => {
 
         .panel-wrap {
           font-family: 'Plus Jakarta Sans', sans-serif;
-          display: flex;
-          flex-direction: column;
-          gap: 1.5rem;
+          display: flex; flex-direction: column; gap: 1.5rem;
         }
 
+        /* ── Header ── */
         .panel-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          flex-wrap: wrap;
-          gap: 1rem;
+          display: flex; align-items: flex-start; justify-content: space-between;
+          flex-wrap: wrap; gap: 1rem;
         }
-        .panel-header-left { display: flex; flex-direction: column; gap: 2px; }
-        .panel-page-title {
-          font-size: 1.35rem;
-          font-weight: 800;
-          color: #0a0a0a;
-          letter-spacing: -0.02em;
-        }
-        .panel-page-sub {
-          font-size: 0.82rem;
-          color: #9ca3af;
-        }
-        .panel-add-btn {
-          background: #1a2744;
-          color: #fff;
-          border: none;
-          border-radius: 10px;
-          padding: 0.6rem 1.2rem;
-          font-family: 'Plus Jakarta Sans', sans-serif;
-          font-weight: 600;
-          font-size: 0.875rem;
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          gap: 0.4rem;
-          transition: background 0.2s, transform 0.15s;
-        }
-        .panel-add-btn:hover { background: #263660; transform: translateY(-1px); }
+        .panel-page-title { font-size: 1.25rem; font-weight: 800; color: #0a0a0a; letter-spacing: -0.02em; margin: 0; }
+        .panel-page-sub   { font-size: 0.8rem; color: #9ca3af; margin: 2px 0 0; }
 
-        .panel-stats {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-          gap: 1rem;
-        }
-        .stat-card {
-          background: #fff;
-          border-radius: 14px;
-          padding: 1.2rem 1.4rem;
-          border: 1px solid #e9ecf0;
-          display: flex;
-          flex-direction: column;
-          gap: 0.4rem;
-        }
-        .stat-label {
-          font-size: 0.75rem;
-          color: #9ca3af;
-          font-weight: 600;
-          text-transform: uppercase;
-          letter-spacing: 0.06em;
-        }
-        .stat-value {
-          font-size: 1.8rem;
-          font-weight: 800;
-          color: #1a2744;
-          line-height: 1;
-        }
-        .stat-hint { font-size: 0.75rem; color: #6b7280; }
-
-        .panel-card {
-          background: #fff;
-          border-radius: 16px;
-          border: 1px solid #e9ecf0;
-          overflow: hidden;
-        }
+        /* ── Card ── */
+        .panel-card { background: #fff; border-radius: 16px; border: 1px solid #e9ecf0; overflow: hidden; }
         .panel-card-header {
-          padding: 1.1rem 1.4rem;
-          border-bottom: 1px solid #f1f5f9;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          flex-wrap: wrap;
-          gap: 0.75rem;
+          padding: 1rem 1.25rem; border-bottom: 1px solid #f1f5f9;
+          display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;
         }
-        .panel-card-title {
-          font-size: 0.9rem;
-          font-weight: 700;
-          color: #1a2744;
-        }
-        .panel-search {
-          padding: 0.45rem 0.9rem;
-          border: 1.5px solid #e5e7eb;
-          border-radius: 8px;
-          font-family: 'Plus Jakarta Sans', sans-serif;
-          font-size: 0.82rem;
-          outline: none;
-          width: 200px;
-          transition: border-color 0.2s;
-        }
-        .panel-search:focus { border-color: #1a2744; }
+        .panel-card-title { font-size: 0.875rem; font-weight: 700; color: #1a2744; }
 
-        .panel-table-wrap { overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; font-size: 0.855rem; }
-        thead tr { background: #f8fafc; }
-        th {
-          padding: 0.75rem 1.2rem;
-          text-align: left;
-          font-size: 0.75rem;
-          font-weight: 700;
-          color: #6b7280;
-          letter-spacing: 0.06em;
-          text-transform: uppercase;
+        /* ── Info Grid ── */
+        .info-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+          gap: 0;
+        }
+        .info-item {
+          padding: 1.25rem 1.5rem;
+          border-right: 1px solid #f1f5f9;
+          border-bottom: 1px solid #f1f5f9;
+        }
+        .info-item:last-child { border-right: none; }
+        .info-label {
+          font-size: 0.7rem; font-weight: 700; color: #9ca3af;
+          text-transform: uppercase; letter-spacing: 0.07em;
+          display: flex; align-items: center; gap: 6px; margin-bottom: 6px;
+        }
+        .info-label svg { opacity: 0.6; }
+        .info-value {
+          font-size: 0.9rem; font-weight: 600; color: #1a2744;
+          word-break: break-all;
+        }
+        .info-value.empty { color: #d1d5db; font-style: italic; font-weight: 400; }
+
+        .panel-foot {
+          padding: 1rem 1.25rem;
+          display: flex; justify-content: flex-end; gap: 8px;
+          border-top: 1px solid #f1f5f9;
+        }
+
+        /* ── Empty State ── */
+        .empty-state {
+          padding: 3rem 1.5rem; text-align: center;
+        }
+        .empty-state-icon {
+          width: 56px; height: 56px; border-radius: 50%;
+          background: #f1f5f9; display: flex; align-items: center;
+          justify-content: center; margin: 0 auto 1rem;
+        }
+        .empty-state-title {
+          font-size: 0.95rem; font-weight: 700; color: #1a2744; margin: 0 0 4px;
+        }
+        .empty-state-sub {
+          font-size: 0.8rem; color: #9ca3af; margin: 0 0 1.25rem;
+        }
+
+        /* ── Loading ── */
+        .loading-state { padding: 3rem; text-align: center; color: #9ca3af; font-size: 0.875rem; }
+
+        /* ── Buttons ── */
+        .btn {
+          font-family: 'Plus Jakarta Sans', sans-serif;
+          font-size: 0.8rem; font-weight: 600; border-radius: 8px;
+          padding: 7px 14px; cursor: pointer; border: 1.5px solid;
+          transition: all 0.15s; display: inline-flex; align-items: center; gap: 5px;
+        }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-primary { background: #1a2744; color: #fff; border-color: #1a2744; }
+        .btn-primary:hover:not(:disabled) { background: #263660; }
+        .btn-success { background: #0d9e6f; color: #fff; border-color: #0d9e6f; }
+        .btn-success:hover:not(:disabled) { background: #0b8a60; }
+        .btn-outline { background: none; color: #374151; border-color: #e5e7eb; }
+        .btn-outline:hover:not(:disabled) { border-color: #1a2744; color: #1a2744; }
+
+        /* ── Modal ── */
+        .modal-overlay {
+          position: fixed; inset: 0; background: rgba(0,0,0,0.45);
+          display: flex; align-items: center; justify-content: center; z-index: 1000;
+        }
+        .modal-box {
+          background: #fff; border-radius: 16px; padding: 1.75rem; width: 440px;
+          max-width: 95vw; max-height: 90vh; overflow-y: auto;
+          box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+        }
+        .modal-head {
+          display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem;
+        }
+        .modal-title { font-size: 1rem; font-weight: 800; color: #0a0a0a; margin: 0; letter-spacing: -0.02em; }
+        .modal-close {
+          background: none; border: none; font-size: 1rem; cursor: pointer;
+          color: #9ca3af; padding: 2px 6px; border-radius: 6px; transition: all 0.15s;
+        }
+        .modal-close:hover { background: #f1f5f9; color: #1a2744; }
+
+        .field { margin-bottom: 14px; }
+        .field label { display: block; font-size: 0.75rem; font-weight: 600; color: #374151; margin-bottom: 5px; }
+        .input-wrap { position: relative; }
+        .input-icon {
+          position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
+          color: #9ca3af; display: flex; align-items: center; pointer-events: none;
+        }
+        .input-wrap input {
+          width: 100%; box-sizing: border-box; padding: 9px 12px 9px 34px;
+          border: 1.5px solid #e5e7eb; border-radius: 8px;
+          font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.84rem;
+          color: #0a0a0a; outline: none; transition: border-color 0.2s;
+        }
+        .input-wrap input:focus { border-color: #1a2744; }
+        .modal-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 1.25rem; }
+
+        /* ── Toast ── */
+        .toast {
+          position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+          padding: 10px 22px; border-radius: 10px;
+          font-family: 'Plus Jakarta Sans', sans-serif;
+          font-size: 0.82rem; font-weight: 600; pointer-events: none; z-index: 2000;
+          animation: fadeInUp 0.2s ease;
           white-space: nowrap;
         }
-        td {
-          padding: 0.85rem 1.2rem;
-          color: #374151;
-          border-top: 1px solid #f1f5f9;
-          vertical-align: middle;
+        .toast.success { background: #1a2744; color: #fff; }
+        .toast.error   { background: #dc2626; color: #fff; }
+        @keyframes fadeInUp {
+          from { opacity:0; transform: translateX(-50%) translateY(8px); }
+          to   { opacity:1; transform: translateX(-50%) translateY(0); }
         }
-        tr:hover td { background: #f8fafc; }
 
+        /* ── Badge ── */
         .badge {
-          display: inline-block;
-          padding: 0.2rem 0.65rem;
-          border-radius: 100px;
-          font-size: 0.72rem;
-          font-weight: 700;
+          font-size: 0.68rem; font-weight: 700; padding: 2px 8px; border-radius: 20px;
+          letter-spacing: 0.04em; text-transform: uppercase;
         }
-        .badge-active { background: #dcfce7; color: #16a34a; }
-        .badge-draft  { background: #fef9c3; color: #ca8a04; }
-
-        .action-btn {
-          background: none;
-          border: 1.5px solid #e5e7eb;
-          border-radius: 7px;
-          padding: 0.28rem 0.65rem;
-          font-family: 'Plus Jakarta Sans', sans-serif;
-          font-size: 0.75rem;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all 0.18s;
-          color: #374151;
-        }
-        .action-btn:hover { border-color: #1a2744; color: #1a2744; }
-        .action-btn.del:hover { border-color: #ef4444; color: #ef4444; }
-
-        .empty-state {
-          padding: 3rem;
-          text-align: center;
-          color: #9ca3af;
-          font-size: 0.9rem;
-        }
-        .empty-icon { font-size: 2rem; margin-bottom: 0.5rem; }
-
-        @media (max-width: 600px) {
-          .panel-search { width: 100%; }
-          th, td { padding: 0.65rem 0.85rem; }
-        }
+        .badge-success { background: #d1fae5; color: #065f46; }
+        .badge-gray    { background: #f1f5f9; color: #64748b; }
       `}</style>
 
       <div className="panel-wrap">
+        {/* Header */}
         <div className="panel-header">
-          <div className="panel-header-left">
+          <div>
             <h1 className="panel-page-title">✉ Contact Us</h1>
-            <p className="panel-page-sub">Kelola pesan dan informasi kontak</p>
+            <p className="panel-page-sub">
+              Kelola informasi kontak yang tampil di landing page
+            </p>
           </div>
-          <button className="panel-add-btn">+ Tambah Contact Us</button>
+          {/* Tombol Add di header, hanya tampil jika data belum ada dan tidak loading */}
+          {!loading && !data && (
+            <button
+              className="btn btn-success"
+              onClick={() => setModalMode("add")}
+            >
+              ➕ Tambah Kontak
+            </button>
+          )}
         </div>
 
-        <div className="panel-stats">
-          <div className="stat-card">
-            <span className="stat-label">Total</span>
-            <span className="stat-value">0</span>
-            {/* TODO: isi dari API */}
-            <span className="stat-hint">item terdaftar</span>
-          </div>
-          <div className="stat-card">
-            <span className="stat-label">Aktif</span>
-            <span className="stat-value">0</span>
-            <span className="stat-hint">ditampilkan di landing</span>
-          </div>
-          <div className="stat-card">
-            <span className="stat-label">Draft</span>
-            <span className="stat-value">0</span>
-            <span className="stat-hint">belum dipublikasi</span>
-          </div>
-        </div>
-
+        {/* Card */}
         <div className="panel-card">
           <div className="panel-card-header">
-            <span className="panel-card-title">Daftar Contact Us</span>
-            <input
-              className="panel-search"
-              placeholder="Cari..."
-              type="search"
-            />
+            <span className="panel-card-title">Informasi Kontak</span>
+            <span className={`badge ${data ? "badge-success" : "badge-gray"}`}>
+              {data ? "Aktif" : "Belum ada data"}
+            </span>
           </div>
-          <div className="panel-table-wrap">
-            {/* TODO: ganti dengan data dari API — contoh struktur tabel: */}
-            {/*
-            <table>
-              <thead>
-                <tr>
-                  <th>No</th>
-                  <th>Nama</th>
-                  <th>Status</th>
-                  <th>Aksi</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>1</td>
-                  <td>Contoh Item</td>
-                  <td><span className="badge badge-active">Aktif</span></td>
-                  <td style={{display:"flex", gap:"0.4rem"}}>
-                    <button className="action-btn">Edit</button>
-                    <button className="action-btn del">Hapus</button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-            */}
-            <div className="empty-state">
-              <div className="empty-icon">✉</div>
-              <p>Belum ada data Contact Us.</p>
-              <p>
-                Klik <strong>+ Tambah Contact Us</strong> untuk mulai.
-              </p>
+
+          {loading ? (
+            <div className="loading-state">
+              <p>Memuat data…</p>
             </div>
-          </div>
+          ) : !data ? (
+            <div className="empty-state">
+              <div className="empty-state-icon">
+                <svg
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#9ca3af"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <rect x="2" y="4" width="20" height="16" rx="3" />
+                  <polyline points="2,4 12,13 22,4" />
+                </svg>
+              </div>
+              <p className="empty-state-title">Belum ada data kontak</p>
+              <p className="empty-state-sub">
+                Tambahkan informasi kontak untuk ditampilkan di landing page.
+              </p>
+              <button
+                className="btn btn-success"
+                onClick={() => setModalMode("add")}
+              >
+                ➕ Tambah Kontak Sekarang
+              </button>
+            </div>
+          ) : (
+            <div className="info-grid">
+              {fields.map(({ key, label, icon }) => (
+                <div className="info-item" key={key}>
+                  <div className="info-label">
+                    {icon}
+                    {label}
+                  </div>
+                  <div className={`info-value ${!data[key] ? "empty" : ""}`}>
+                    {data[key] || "Belum diisi"}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Footer hanya tampil jika ada data */}
+          {data && (
+            <div className="panel-foot">
+              <button
+                className="btn btn-primary"
+                onClick={() => setModalMode("edit")}
+                disabled={loading}
+              >
+                ✎ Edit Kontak
+              </button>
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Modal — mode "add" juga pakai data existing agar bisa pre-fill */}
+      {modalMode && (
+        <ContactModal
+          item={data}
+          mode={modalMode}
+          onClose={() => setModalMode(null)}
+          onSave={handleSave}
+        />
+      )}
+
+      {/* Toast */}
+      {toast.msg && <div className={`toast ${toast.type}`}>{toast.msg}</div>}
     </>
   );
 };

@@ -41,7 +41,6 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-
 // ── Convert to .webp and delete original ─────────────────────────────────────
 const convertToWebp = async (filePath) => {
   const normalizedPath = filePath.replace(/\\/g, "/");
@@ -65,7 +64,6 @@ const convertToWebp = async (filePath) => {
   return `/uploads/${webpFilename}`;
 };
 
-
 // ── Login ─────────────────────────────────────────────────────────────────────
 app.get("/api/login", (req, res) => {
   const { username, password } = req.query;
@@ -78,7 +76,6 @@ app.get("/api/login", (req, res) => {
     return res.status(200).json({ message: "Login berhasil!" });
   });
 });
-
 
 // ── Load ──────────────────────────────────────────────────────────────────────
 app.get("/api/creators", (req, res) => {
@@ -125,7 +122,6 @@ app.get("/api/contacts", (req, res) => {
   });
 });
 
-
 // ── Create ────────────────────────────────────────────────────────────────────
 app.post("/api/create-creators", upload.single("image"), async (req, res) => {
   const name = req.body.name;
@@ -169,7 +165,7 @@ app.post("/api/create-creators", upload.single("image"), async (req, res) => {
       res
         .status(201)
         .json({ message: "Creator berhasil ditambahkan", id: result.insertId });
-    }
+    },
   );
 });
 
@@ -200,9 +196,9 @@ app.post(
           imagetype: imageType,
           imageUrl: image,
         });
-      }
+      },
     );
-  }
+  },
 );
 
 app.post(
@@ -232,9 +228,9 @@ app.post(
           imagetype: imageType,
           imageUrl: image,
         });
-      }
+      },
     );
-  }
+  },
 );
 
 app.post("/api/create-updates-section-description", (req, res) => {
@@ -251,7 +247,7 @@ app.post("/api/create-updates-section-description", (req, res) => {
         message: "Deskripsi updates section berhasil ditambahkan",
         id: result.insertId,
       });
-    }
+    },
   );
 });
 
@@ -280,9 +276,9 @@ app.post(
           message: "Testimonial berhasil ditambahkan",
           id: result.insertId,
         });
-      }
+      },
     );
-  }
+  },
 );
 
 app.post("/api/create-role", (req, res) => {
@@ -309,7 +305,6 @@ app.post("/api/create-role", (req, res) => {
     });
   });
 });
-
 
 // ── Update ────────────────────────────────────────────────────────────────────
 app.put(
@@ -384,7 +379,7 @@ app.put(
       }
       res.status(200).json({ message: "Creator berhasil diperbarui" });
     });
-  }
+  },
 );
 
 app.put("/api/remove-role/:id", (req, res) => {
@@ -406,7 +401,7 @@ app.put("/api/remove-role/:id", (req, res) => {
         if (err2)
           return res.status(500).json({ error: "Gagal menghapus role" });
         res.json({ message: "Role removed" });
-      }
+      },
     );
   });
 });
@@ -432,9 +427,9 @@ app.put(
             .status(500)
             .json({ error: "Gagal memperbarui aset website" });
         res.status(200).json({ message: "Gambar website berhasil diperbarui" });
-      }
+      },
     );
-  }
+  },
 );
 
 app.put(
@@ -460,9 +455,9 @@ app.put(
         res
           .status(200)
           .json({ message: "Gambar updates section berhasil diperbarui" });
-      }
+      },
     );
-  }
+  },
 );
 
 app.put("/api/update-updates-section-description", (req, res) => {
@@ -481,7 +476,7 @@ app.put("/api/update-updates-section-description", (req, res) => {
       res
         .status(200)
         .json({ message: "Deskripsi updates section berhasil diperbarui" });
-    }
+    },
   );
 });
 
@@ -526,9 +521,9 @@ app.put(
             .status(500)
             .json({ error: "Gagal memperbarui testimonial" });
         res.status(200).json({ message: "Testimonial berhasil diperbarui" });
-      }
+      },
     );
-  }
+  },
 );
 
 app.put("/api/update-contacts", upload.single("logo"), async (req, res) => {
@@ -570,7 +565,6 @@ app.put("/api/update-contacts", upload.single("logo"), async (req, res) => {
   });
 });
 
-
 // ── Delete ────────────────────────────────────────────────────────────────────
 app.delete("/api/delete-creators/:id", (req, res) => {
   db.query("DELETE FROM creators WHERE id = ?", [req.params.id], (err) => {
@@ -589,7 +583,7 @@ app.delete("/api/delete-hainick-assets/:image_type", (req, res) => {
           .status(500)
           .json({ error: "Gagal menghapus hainick update" });
       res.status(200).json({ message: "Hainick update berhasil dihapus" });
-    }
+    },
   );
 });
 
@@ -603,7 +597,7 @@ app.delete("/api/delete-updates-section/:image_type", (req, res) => {
           .status(500)
           .json({ error: "Gagal menghapus update section" });
       res.status(200).json({ message: "Update section berhasil dihapus" });
-    }
+    },
   );
 });
 
@@ -618,7 +612,7 @@ app.delete("/api/delete-updates-section-description", (req, res) => {
       res
         .status(200)
         .json({ message: "Deskripsi update section berhasil dihapus" });
-    }
+    },
   );
 });
 
@@ -636,7 +630,6 @@ app.delete("/api/delete-contacts", (req, res) => {
     res.status(200).json({ message: "Kontak berhasil dihapus" });
   });
 });
-
 
 app.listen(8000, () => {
   console.log("🚀 Server berjalan di http://localhost:8000");
