@@ -9,10 +9,9 @@ import PricelistSection from "./section/PricelistSection";
 import ActivitySection from "./section/ActivitySection";
 import TestimonySection from "./section/TestimonySection";
 import ContactSection from "./section/ContactSection";
+import CreatorSection from "./section/CreatorSection";
 
 // Nanti uncomment setelah section dibuat:
-
-// import CreatorSection from "./section/CreatorSection";
 
 const LandingPage = () => {
   return (
@@ -34,7 +33,7 @@ const LandingPage = () => {
         <HomeSection />
         <AboutSection />
         <TalentSection />
-        {/* <CreatorSection /> */}
+        <CreatorSection />
         <ServiceSection />
         <PricelistSection />
         <ActivitySection />

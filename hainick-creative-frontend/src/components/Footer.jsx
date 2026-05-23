@@ -224,7 +224,7 @@ export default function Footer() {
 
         {/* ── Bottom bar ── */}
         <div className="footer-bottom">
-          <p className="footer-copy">© 2025 Hainick.Co. All rights reserved</p>
+          <p className="footer-copy">© 2026 Hainick.Co. All rights reserved</p>
           <div className="footer-socials">
             {SOCIALS.map((s) => (
               <a
