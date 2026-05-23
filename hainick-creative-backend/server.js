@@ -114,6 +114,24 @@ app.get("/api/testimonials", (req, res) => {
   });
 });
 
+app.get("/api/creators-photocard", (req, res) => {
+  db.query("SELECT * FROM creators_photocard", (err, result) => {
+    if (err)
+      return res
+        .status(500)
+        .json({ error: "Gagal mengambil data creators photocard" });
+    res.status(200).json(result);
+  });
+})
+
+app.get("/api/creators-photocard-statistics", (req, res) => {
+  db.query("SELECT * FROM creators_photocard_statistics", (err, result) => {
+    if (err)
+      return res.status(500).json({ error: "Gagal mengambil data creators photocard statistics" });
+    res.status(200).json(result);
+  });
+});
+
 app.get("/api/contacts", (req, res) => {
   db.query("SELECT * FROM contacts", (err, result) => {
     if (err)
@@ -304,6 +322,48 @@ app.post("/api/create-role", (req, res) => {
       res.json({ message: "Role added successfully" });
     });
   });
+});
+
+app.post("/api/create-creators-photocard", upload.single("image"), async (req, res) => {
+  const image = null
+  if (req.file) {
+    image = await convertToWebp(req.file.path);
+  }
+
+  db.query(
+    "INSERT INTO creators_photocard (image_url) VALUES (?)",
+    [image],
+    (err, result) => {
+      if (err)
+        return res
+          .status(500)
+          .json({ error: "Gagal menambahkan creators photocard" });
+      res.status(201).json({
+        message: "Creators photocard berhasil ditambahkan",
+        id: result.insertId,
+      });
+    },
+  );
+});
+
+app.post("/api/create-creators-photocard-statistics", (req, res) => {
+  const creators = req.body.creators;
+  const brand = req.body.brand;
+  const projects = req.body.projects;
+
+  db.query(
+    "INSERT INTO creators_photocard_statistics (creators, brand, projects) VALUES (?, ?, ?)", 
+    [creators, brand, projects],
+    (err, result) => {
+      if (err)        return res
+          .status(500)
+          .json({ error: "Gagal menambahkan creators photocard statistics" });
+      res.status(201).json({
+        message: "Creators photocard statistics berhasil ditambahkan",
+        id: result.insertId,
+      });
+    }
+  );
 });
 
 // ── Update ────────────────────────────────────────────────────────────────────
@@ -526,6 +586,70 @@ app.put(
   },
 );
 
+app.put("/api/update-creators-photocard/:id", upload.single("image"), async (req, res) => {
+  const id = req.params.id;
+  const image = null;
+  if (req.file) {
+    image = await convertToWebp(req.file.path);
+  }
+
+  db.query(
+    "UPDATE creators_photocard SET image_url = ? WHERE id = ?",
+    [image, id],
+    (err) => {
+      if (err)
+        return res
+          .status(500)
+          .json({ error: "Gagal memperbarui creators photocard" });
+      res.status(200).json({ message: "Creators photocard berhasil diperbarui" });
+    }
+  );
+});
+
+app.put("/api/update-creators-photocard-statistics", (req, res) => {
+  const creators = req.body.creators;
+  const brand = req.body.brand;
+  const projects = req.body.projects;
+
+  if(creators !== null && creators !== undefined) {
+    db.query(
+      "UPDATE creators_photocard_statistics SET creators = ?",
+      [creators],
+      (err) => {
+        if (err)
+          return res
+            .status(500)
+            .json({ error: "Gagal memperbarui creators photocard statistics (creators)" });
+      }
+    );
+  }
+  if(brand !== null && brand !== undefined) {
+    db.query(
+      "UPDATE creators_photocard_statistics SET brand = ?",
+      [brand],
+      (err) => {
+        if (err)
+          return res
+            .status(500)
+            .json({ error: "Gagal memperbarui creators photocard statistics (brand)" });
+      }
+    );
+  }
+  if(projects !== null && projects !== undefined) {
+    db.query(
+      "UPDATE creators_photocard_statistics SET projects = ?",
+      [projects],
+      (err) => {
+        if (err)
+          return res
+            .status(500)
+            .json({ error: "Gagal memperbarui creators photocard statistics (projects)" });
+      }
+    );
+  }
+  res.status(200).json({ message: "Creators photocard statistics berhasil diperbarui" });
+})
+
 app.put("/api/update-contacts", upload.single("logo"), async (req, res) => {
   const { instagram, gmail, phone_number1, phone_number2 } = req.body;
 
@@ -621,6 +745,26 @@ app.delete("/api/delete-testimonials/:id", (req, res) => {
     if (err)
       return res.status(500).json({ error: "Gagal menghapus testimonial" });
     res.status(200).json({ message: "Testimonial berhasil dihapus" });
+  });
+});
+
+app.delete("/api/delete-creators-photocard/:id", (req, res) => {
+  db.query("DELETE FROM creators_photocard WHERE id = ?", [req.params.id], (err) => {
+    if (err)      
+      return res
+        .status(500)
+        .json({ error: "Gagal menghapus creators photocard" });
+    res.status(200).json({ message: "Creators photocard berhasil dihapus" });
+  });
+});
+
+app.delete("/api/delete-creators-photocard-statistics", (req, res) => {
+  db.query("DELETE FROM creators_photocard_statistics", (err) => {
+    if (err)      
+      return res
+        .status(500)
+        .json({ error: "Gagal menghapus creators photocard statistics" });
+    res.status(200).json({ message: "Creators photocard statistics berhasil dihapus" });
   });
 });
 
