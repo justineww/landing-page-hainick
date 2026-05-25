@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import hainickLogo from "../../storage/logo/hainick_logo.png";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -61,14 +62,13 @@ const Login = () => {
           padding: 2.8rem 2.4rem;
         }
 
-        .login-logo {
-          font-size: 1.6rem;
-          font-weight: 800;
-          color: #0a0a0a;
-          letter-spacing: -0.04em;
+        .login-logo img {
+          height: 28px;
+          width: auto;
+          display: block;
           margin-bottom: 0.3rem;
+          object-fit: contain;
         }
-        .login-logo span { color: #1a2744; }
 
         .login-subtitle {
           font-size: 0.85rem;
@@ -157,7 +157,7 @@ const Login = () => {
         <div className="login-card">
           {/* Logo */}
           <div className="login-logo">
-            hainick<span>.</span>
+            <img src={hainickLogo} alt="Hainick Logo" />
           </div>
           <p className="login-subtitle">
             Admin Panel — Masuk untuk melanjutkan

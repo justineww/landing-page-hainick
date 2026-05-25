@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import hainickLogo from "../storage/logo/hainick_logo.png";
 
 const Header = () => {
   const [scrolled, setScrolled] = useState(false);
@@ -149,11 +150,23 @@ const Header = () => {
           text-align: center;
         }
 
+        /* ── Logo image ── */
+        .header-logo-img {
+          height: 24px;
+          width: auto;
+          object-fit: contain;
+          display: block;
+        }
+
         /* ── Breakpoints ── */
         @media (max-width: 1023px) {
           .desktop-nav { display: none !important; }
           .desktop-cta { display: none !important; }
           .hamburger   { display: flex !important; }
+        }
+
+        @media (max-width: 480px) {
+          .header-logo-img { height: 28px; }
         }
       `}</style>
 
@@ -193,32 +206,10 @@ const Header = () => {
             style={{
               textDecoration: "none",
               display: "flex",
-              alignItems: "baseline",
-              gap: 1,
+              alignItems: "center",
             }}
           >
-            <span
-              style={{
-                fontFamily: "'Plus Jakarta Sans', sans-serif",
-                fontSize: "1.45rem",
-                fontWeight: 800,
-                color: "#0a0a0a",
-                letterSpacing: "-0.04em",
-              }}
-            >
-              hainick
-            </span>
-            <span
-              style={{
-                fontFamily: "'Plus Jakarta Sans', sans-serif",
-                fontSize: "1.7rem",
-                fontWeight: 800,
-                color: "#0a0a0a",
-                lineHeight: 1,
-              }}
-            >
-              .
-            </span>
+            <img src={hainickLogo} alt="Hainick" className="header-logo-img" />
           </a>
 
           {/* Desktop Nav (center) */}

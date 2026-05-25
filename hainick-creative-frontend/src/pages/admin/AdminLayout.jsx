@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
+import hainickLogo from "../../storage/logo/hainick_logo.png";
 
 const menuItems = [
   { label: "Home", path: "/admin", icon: "⌂" },
@@ -18,7 +19,6 @@ const AdminLayout = () => {
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    // TODO: clear token/session dari backend
     navigate("/admin/login");
   };
 
@@ -51,19 +51,19 @@ const AdminLayout = () => {
           padding: 1.6rem 1.5rem 1.2rem;
           border-bottom: 1px solid rgba(255,255,255,0.08);
         }
-        .sidebar-logo-text {
-          font-size: 1.4rem;
-          font-weight: 800;
-          color: #fff;
-          letter-spacing: -0.04em;
+        .sidebar-logo img {
+          height: 24px;
+          width: auto;
+          display: block;
+          object-fit: contain;
+          filter: brightness(0) invert(1);
         }
-        .sidebar-logo-text span { color: #94a3b8; }
         .sidebar-role {
           font-size: 0.72rem;
           color: #64748b;
           letter-spacing: 0.08em;
           text-transform: uppercase;
-          margin-top: 2px;
+          margin-top: 6px;
         }
 
         .sidebar-nav {
@@ -239,9 +239,7 @@ const AdminLayout = () => {
         {/* ── SIDEBAR ── */}
         <aside className={`sidebar${sidebarOpen ? " open" : ""}`}>
           <div className="sidebar-logo">
-            <div className="sidebar-logo-text">
-              hainick<span>.</span>
-            </div>
+            <img src={hainickLogo} alt="Hainick Logo" />
             <div className="sidebar-role">Admin Panel</div>
           </div>
 

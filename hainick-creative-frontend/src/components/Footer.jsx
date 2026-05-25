@@ -1,4 +1,5 @@
 // Footer.jsx
+import hainickLogo from "../storage/logo/hainick_logo.png";
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 const IGIcon = () => (
@@ -87,15 +88,12 @@ export default function Footer() {
         }
 
         /* Brand col */
-        .footer-brand-logo {
-          font-size: 1.55rem;
-          font-weight: 800;
-          letter-spacing: -0.04em;
-          color: #0a0a0a;
-          text-decoration: none;
-          display: inline-block;
-          margin-bottom: 14px;
-          line-height: 1;
+        .footer-brand-logo-img {
+          height: 28px;
+          width: auto;
+          object-fit: contain;
+          display: block;
+          margin-bottom: 20px;
         }
 
         .footer-brand-desc {
@@ -184,6 +182,7 @@ export default function Footer() {
           .footer-root { padding: 40px 1rem 0; }
           .footer-nav { grid-template-columns: repeat(2, 1fr); gap: 12px; }
           .footer-bottom { flex-direction: column; align-items: flex-start; gap: 14px; }
+          .footer-brand-logo-img { height: 26px; }
         }
       `}</style>
 
@@ -192,8 +191,12 @@ export default function Footer() {
         <div className="footer-top">
           {/* Brand */}
           <div>
-            <a href="#home" className="footer-brand-logo">
-              hainick.
+            <a href="#home">
+              <img
+                src={hainickLogo}
+                alt="Hainick"
+                className="footer-brand-logo-img"
+              />
             </a>
             <p className="footer-brand-desc">
               Hainick is a creative management company dedicated to connecting

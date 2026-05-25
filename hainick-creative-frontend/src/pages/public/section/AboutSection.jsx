@@ -168,10 +168,9 @@ export default function AboutSection() {
           font-size: clamp(1.75rem, 4vw, 2.4rem);
           font-weight: 800;
           margin: 0 0 18px;
-          letter-spacing: -0.03em;
+          letter-spacing: 0.01em;
           line-height: 1.1;
         }
-        .about-page-title span { color: var(--clr-accent); }
 
         .about-desc {
           font-size: clamp(0.875rem, 1.8vw, 0.96rem);
@@ -194,7 +193,7 @@ export default function AboutSection() {
           display: block;
           width: 36px;
           height: 2px;
-          background: var(--clr-accent);
+          background: #4a4a4a; 
           margin-top: 8px;
           border-radius: 2px;
         }
@@ -206,8 +205,8 @@ export default function AboutSection() {
           margin-bottom: 40px;
         }
         .service-card {
-          background: var(--clr-accent-light);
-          border: 1px solid #c8e6d6;
+          background: #dce8f5;
+          border: 1px solid #ccd9ee;
           border-radius: var(--radius-card);
           padding: 20px 22px;
           transition: box-shadow 0.2s ease, transform 0.2s ease;
@@ -216,12 +215,12 @@ export default function AboutSection() {
           box-shadow: 0 6px 24px rgba(42,111,78,0.12);
           transform: translateY(-2px);
         }
-        .service-card-title { font-size: 0.92rem; font-weight: 600; margin: 0 0 8px; color: var(--clr-accent); }
+        .service-card-title { font-size: 0.92rem; font-weight: 600; margin: 0 0 8px; color: #1a2f5e; }
         .service-card-desc { font-size: 0.865rem; line-height: 1.65; color: var(--clr-muted); margin: 0; font-weight: 300; }
 
         .vision-box {
           background: var(--clr-tag-bg);
-          border-left: 3px solid var(--clr-accent);
+          border-left: 3px solid #1a2f5e;
           border-radius: 0 var(--radius-card) var(--radius-card) 0;
           padding: 18px 22px;
           margin-bottom: 40px;
@@ -317,9 +316,7 @@ export default function AboutSection() {
 
       <section className="about-root">
         {/* Heading */}
-        <h1 className="about-page-title">
-          About <span>Hainick</span>
-        </h1>
+        <h1 className="about-page-title">About Hainick</h1>
         <p className="about-desc">{description}</p>
         <hr className="about-divider" />
 
