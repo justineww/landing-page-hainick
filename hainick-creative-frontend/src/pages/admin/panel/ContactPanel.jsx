@@ -1,18 +1,38 @@
 import { useState, useEffect, useCallback } from "react";
 
-const API = "/api/contacts";
-const UPDATE_API = "/api/update-contacts";
+const BASE_URL = "http://localhost:8000";
+const API = `${BASE_URL}/api/contact`;
+const UPDATE_API = `${BASE_URL}/api/update-contact`;
 
-async function request(url, options = {}) {
-  const res = await fetch(url, {
-    headers: { "Content-Type": "application/json" },
-    ...options,
+// ✅ FIX: Gunakan FormData karena backend pakai multer (bukan JSON)
+async function putFormData(url, payload) {
+  const formData = new FormData();
+  Object.entries(payload).forEach(([key, val]) => {
+    if (val !== undefined && val !== null) {
+      formData.append(key, val);
+    }
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+  const res = await fetch(url, {
+    method: "PUT",
+    body: formData,
+    // ✅ JANGAN set Content-Type manual — biarkan browser set multipart boundary otomatis
+  });
+
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({}));
+    throw new Error(errBody.error || `HTTP ${res.status}`);
+  }
   return res.status !== 204 ? res.json() : null;
 }
 
-// Form state pakai nama field BACKEND (untuk PUT /api/update-contacts)
+async function getJSON(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+// ✅ FIX: Nama field sesuai yang diterima backend PUT /api/update-contacts
 const EMPTY_FORM = {
   instagram: "",
   gmail: "",
@@ -21,13 +41,14 @@ const EMPTY_FORM = {
 };
 
 function ContactModal({ item, mode, onClose, onSave }) {
+  // ✅ FIX: Mapping nama kolom DB → nama field backend
+  // DB: instagram_account → backend field: instagram
+  // DB: gmail_account     → backend field: gmail
   const [form, setForm] = useState(
     item
       ? {
-          // DB menyimpan sebagai instagram_account & gmail_account,
-          // tapi PUT /api/update-contacts menerima 'instagram' & 'gmail'
-          instagram: item.instagram_account ?? "",
-          gmail: item.gmail_account ?? "",
+          instagram: item.instagram_account ?? item.instagram ?? "",
+          gmail: item.gmail_account ?? item.gmail ?? "",
           phone_number1: item.phone_number1 ?? "",
           phone_number2: item.phone_number2 ?? "",
         }
@@ -184,16 +205,18 @@ function ContactModal({ item, mode, onClose, onSave }) {
 const ContactPanel = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [modalMode, setModalMode] = useState(null); // null | "add" | "edit"
+  const [modalMode, setModalMode] = useState(null);
   const [toast, setToast] = useState({ msg: "", type: "success" });
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const rows = await request(API);
+      // ✅ FIX: Gunakan getJSON terpisah (tidak pakai Content-Type JSON untuk GET)
+      const rows = await getJSON(API);
       setData(Array.isArray(rows) ? (rows[0] ?? null) : rows);
-    } catch {
-      console.error("Gagal fetch contacts");
+    } catch (err) {
+      console.error("Gagal fetch contacts:", err);
+      setData(null);
     } finally {
       setLoading(false);
     }
@@ -209,33 +232,28 @@ const ContactPanel = () => {
   };
 
   const handleSave = async (payload) => {
-    // payload berisi: { instagram, gmail, phone_number1, phone_number2 }
-    // Kedua mode (add & edit) sama-sama pakai PUT /api/update-contacts
-    // karena backend tidak menyediakan POST /api/contacts
     try {
-      await request(UPDATE_API, {
-        method: "PUT",
-        body: JSON.stringify(payload),
-      });
-
-      // Refresh data dari DB agar tampilan sinkron dengan kolom asli
+      // ✅ FIX: Kirim sebagai FormData karena backend pakai multer
+      await putFormData(UPDATE_API, payload);
       await fetchData();
-
       showToast(
         modalMode === "add"
           ? "✓ Data kontak berhasil ditambahkan"
           : "✓ Data kontak berhasil diperbarui",
       );
-    } catch {
-      showToast("✕ Gagal menyimpan, coba lagi.", "error");
+    } catch (err) {
+      console.error("Gagal simpan kontak:", err);
+      showToast(`✕ ${err.message || "Gagal menyimpan, coba lagi."}`, "error");
     }
     setModalMode(null);
   };
 
-  // Tampilkan kolom menggunakan nama kolom DB (instagram_account, gmail_account)
+  // ✅ FIX: key kolom disesuaikan dengan response DB yang sebenarnya
+  // Coba kedua kemungkinan nama kolom (instagram_account ATAU instagram)
   const fields = [
     {
       key: "instagram_account",
+      fallbackKey: "instagram",
       label: "Instagram",
       icon: (
         <svg
@@ -262,6 +280,7 @@ const ContactPanel = () => {
     },
     {
       key: "gmail_account",
+      fallbackKey: "gmail",
       label: "Gmail / Email",
       icon: (
         <svg
@@ -317,6 +336,10 @@ const ContactPanel = () => {
     },
   ];
 
+  // Helper: baca nilai dengan fallback key
+  const getVal = (item, key, fallbackKey) =>
+    item?.[key] ?? (fallbackKey ? item?.[fallbackKey] : undefined);
+
   return (
     <>
       <style>{`
@@ -326,24 +349,18 @@ const ContactPanel = () => {
           font-family: 'Plus Jakarta Sans', sans-serif;
           display: flex; flex-direction: column; gap: 1.5rem;
         }
-
-        /* ── Header ── */
         .panel-header {
           display: flex; align-items: flex-start; justify-content: space-between;
           flex-wrap: wrap; gap: 1rem;
         }
         .panel-page-title { font-size: 1.25rem; font-weight: 800; color: #0a0a0a; letter-spacing: -0.02em; margin: 0; }
         .panel-page-sub   { font-size: 0.8rem; color: #9ca3af; margin: 2px 0 0; }
-
-        /* ── Card ── */
         .panel-card { background: #fff; border-radius: 16px; border: 1px solid #e9ecf0; overflow: hidden; }
         .panel-card-header {
           padding: 1rem 1.25rem; border-bottom: 1px solid #f1f5f9;
           display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem;
         }
         .panel-card-title { font-size: 0.875rem; font-weight: 700; color: #1a2744; }
-
-        /* ── Info Grid ── */
         .info-grid {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -361,38 +378,22 @@ const ContactPanel = () => {
           display: flex; align-items: center; gap: 6px; margin-bottom: 6px;
         }
         .info-label svg { opacity: 0.6; }
-        .info-value {
-          font-size: 0.9rem; font-weight: 600; color: #1a2744;
-          word-break: break-all;
-        }
+        .info-value { font-size: 0.9rem; font-weight: 600; color: #1a2744; word-break: break-all; }
         .info-value.empty { color: #d1d5db; font-style: italic; font-weight: 400; }
-
         .panel-foot {
           padding: 1rem 1.25rem;
           display: flex; justify-content: flex-end; gap: 8px;
           border-top: 1px solid #f1f5f9;
         }
-
-        /* ── Empty State ── */
-        .empty-state {
-          padding: 3rem 1.5rem; text-align: center;
-        }
+        .empty-state { padding: 3rem 1.5rem; text-align: center; }
         .empty-state-icon {
           width: 56px; height: 56px; border-radius: 50%;
           background: #f1f5f9; display: flex; align-items: center;
           justify-content: center; margin: 0 auto 1rem;
         }
-        .empty-state-title {
-          font-size: 0.95rem; font-weight: 700; color: #1a2744; margin: 0 0 4px;
-        }
-        .empty-state-sub {
-          font-size: 0.8rem; color: #9ca3af; margin: 0 0 1.25rem;
-        }
-
-        /* ── Loading ── */
+        .empty-state-title { font-size: 0.95rem; font-weight: 700; color: #1a2744; margin: 0 0 4px; }
+        .empty-state-sub   { font-size: 0.8rem; color: #9ca3af; margin: 0 0 1.25rem; }
         .loading-state { padding: 3rem; text-align: center; color: #9ca3af; font-size: 0.875rem; }
-
-        /* ── Buttons ── */
         .btn {
           font-family: 'Plus Jakarta Sans', sans-serif;
           font-size: 0.8rem; font-weight: 600; border-radius: 8px;
@@ -406,8 +407,6 @@ const ContactPanel = () => {
         .btn-success:hover:not(:disabled) { background: #0b8a60; }
         .btn-outline { background: none; color: #374151; border-color: #e5e7eb; }
         .btn-outline:hover:not(:disabled) { border-color: #1a2744; color: #1a2744; }
-
-        /* ── Modal ── */
         .modal-overlay {
           position: fixed; inset: 0; background: rgba(0,0,0,0.45);
           display: flex; align-items: center; justify-content: center; z-index: 1000;
@@ -426,7 +425,6 @@ const ContactPanel = () => {
           color: #9ca3af; padding: 2px 6px; border-radius: 6px; transition: all 0.15s;
         }
         .modal-close:hover { background: #f1f5f9; color: #1a2744; }
-
         .field { margin-bottom: 14px; }
         .field label { display: block; font-size: 0.75rem; font-weight: 600; color: #374151; margin-bottom: 5px; }
         .input-wrap { position: relative; }
@@ -442,15 +440,12 @@ const ContactPanel = () => {
         }
         .input-wrap input:focus { border-color: #1a2744; }
         .modal-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 1.25rem; }
-
-        /* ── Toast ── */
         .toast {
           position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
           padding: 10px 22px; border-radius: 10px;
           font-family: 'Plus Jakarta Sans', sans-serif;
           font-size: 0.82rem; font-weight: 600; pointer-events: none; z-index: 2000;
-          animation: fadeInUp 0.2s ease;
-          white-space: nowrap;
+          animation: fadeInUp 0.2s ease; white-space: nowrap;
         }
         .toast.success { background: #1a2744; color: #fff; }
         .toast.error   { background: #dc2626; color: #fff; }
@@ -458,8 +453,6 @@ const ContactPanel = () => {
           from { opacity:0; transform: translateX(-50%) translateY(8px); }
           to   { opacity:1; transform: translateX(-50%) translateY(0); }
         }
-
-        /* ── Badge ── */
         .badge {
           font-size: 0.68rem; font-weight: 700; padding: 2px 8px; border-radius: 20px;
           letter-spacing: 0.04em; text-transform: uppercase;
@@ -469,7 +462,6 @@ const ContactPanel = () => {
       `}</style>
 
       <div className="panel-wrap">
-        {/* Header */}
         <div className="panel-header">
           <div>
             <h1 className="panel-page-title">✉ Contact Us</h1>
@@ -477,7 +469,6 @@ const ContactPanel = () => {
               Kelola informasi kontak yang tampil di landing page
             </p>
           </div>
-          {/* Tombol Add di header, hanya tampil jika data belum ada dan tidak loading */}
           {!loading && !data && (
             <button
               className="btn btn-success"
@@ -488,7 +479,6 @@ const ContactPanel = () => {
           )}
         </div>
 
-        {/* Card */}
         <div className="panel-card">
           <div className="panel-card-header">
             <span className="panel-card-title">Informasi Kontak</span>
@@ -531,21 +521,23 @@ const ContactPanel = () => {
             </div>
           ) : (
             <div className="info-grid">
-              {fields.map(({ key, label, icon }) => (
-                <div className="info-item" key={key}>
-                  <div className="info-label">
-                    {icon}
-                    {label}
+              {fields.map(({ key, fallbackKey, label, icon }) => {
+                const val = getVal(data, key, fallbackKey);
+                return (
+                  <div className="info-item" key={key}>
+                    <div className="info-label">
+                      {icon}
+                      {label}
+                    </div>
+                    <div className={`info-value ${!val ? "empty" : ""}`}>
+                      {val || "Belum diisi"}
+                    </div>
                   </div>
-                  <div className={`info-value ${!data[key] ? "empty" : ""}`}>
-                    {data[key] || "Belum diisi"}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
-          {/* Footer hanya tampil jika ada data */}
           {data && (
             <div className="panel-foot">
               <button
@@ -560,7 +552,6 @@ const ContactPanel = () => {
         </div>
       </div>
 
-      {/* Modal — mode "add" juga pakai data existing agar bisa pre-fill */}
       {modalMode && (
         <ContactModal
           item={data}
@@ -570,7 +561,6 @@ const ContactPanel = () => {
         />
       )}
 
-      {/* Toast */}
       {toast.msg && <div className={`toast ${toast.type}`}>{toast.msg}</div>}
     </>
   );

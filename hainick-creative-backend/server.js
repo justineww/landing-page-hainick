@@ -122,18 +122,20 @@ app.get("/api/creators-photocard", (req, res) => {
         .json({ error: "Gagal mengambil data creators photocard" });
     res.status(200).json(result);
   });
-})
+});
 
 app.get("/api/creators-photocard-statistics", (req, res) => {
   db.query("SELECT * FROM creators_photocard_statistics", (err, result) => {
     if (err)
-      return res.status(500).json({ error: "Gagal mengambil data creators photocard statistics" });
+      return res
+        .status(500)
+        .json({ error: "Gagal mengambil data creators photocard statistics" });
     res.status(200).json(result);
   });
 });
 
-app.get("/api/contacts", (req, res) => {
-  db.query("SELECT * FROM contacts", (err, result) => {
+app.get("/api/contact", (req, res) => {
+  db.query("SELECT * FROM contact", (err, result) => {
     if (err)
       return res.status(500).json({ error: "Gagal mengambil data kontak" });
     res.status(200).json(result);
@@ -324,27 +326,31 @@ app.post("/api/create-role", (req, res) => {
   });
 });
 
-app.post("/api/create-creators-photocard", upload.single("image"), async (req, res) => {
-  const image = null
-  if (req.file) {
-    image = await convertToWebp(req.file.path);
-  }
+app.post(
+  "/api/create-creators-photocard",
+  upload.single("image"),
+  async (req, res) => {
+    const image = null;
+    if (req.file) {
+      image = await convertToWebp(req.file.path);
+    }
 
-  db.query(
-    "INSERT INTO creators_photocard (image_url) VALUES (?)",
-    [image],
-    (err, result) => {
-      if (err)
-        return res
-          .status(500)
-          .json({ error: "Gagal menambahkan creators photocard" });
-      res.status(201).json({
-        message: "Creators photocard berhasil ditambahkan",
-        id: result.insertId,
-      });
-    },
-  );
-});
+    db.query(
+      "INSERT INTO creators_photocard (image_url) VALUES (?)",
+      [image],
+      (err, result) => {
+        if (err)
+          return res
+            .status(500)
+            .json({ error: "Gagal menambahkan creators photocard" });
+        res.status(201).json({
+          message: "Creators photocard berhasil ditambahkan",
+          id: result.insertId,
+        });
+      },
+    );
+  },
+);
 
 app.post("/api/create-creators-photocard-statistics", (req, res) => {
   const creators = req.body.creators;
@@ -352,17 +358,18 @@ app.post("/api/create-creators-photocard-statistics", (req, res) => {
   const projects = req.body.projects;
 
   db.query(
-    "INSERT INTO creators_photocard_statistics (creators, brand, projects) VALUES (?, ?, ?)", 
+    "INSERT INTO creators_photocard_statistics (creators, brand, projects) VALUES (?, ?, ?)",
     [creators, brand, projects],
     (err, result) => {
-      if (err)        return res
+      if (err)
+        return res
           .status(500)
           .json({ error: "Gagal menambahkan creators photocard statistics" });
       res.status(201).json({
         message: "Creators photocard statistics berhasil ditambahkan",
         id: result.insertId,
       });
-    }
+    },
   );
 });
 
@@ -586,32 +593,38 @@ app.put(
   },
 );
 
-app.put("/api/update-creators-photocard/:id", upload.single("image"), async (req, res) => {
-  const id = req.params.id;
-  const image = null;
-  if (req.file) {
-    image = await convertToWebp(req.file.path);
-  }
-
-  db.query(
-    "UPDATE creators_photocard SET image_url = ? WHERE id = ?",
-    [image, id],
-    (err) => {
-      if (err)
-        return res
-          .status(500)
-          .json({ error: "Gagal memperbarui creators photocard" });
-      res.status(200).json({ message: "Creators photocard berhasil diperbarui" });
+app.put(
+  "/api/update-creators-photocard/:id",
+  upload.single("image"),
+  async (req, res) => {
+    const id = req.params.id;
+    const image = null;
+    if (req.file) {
+      image = await convertToWebp(req.file.path);
     }
-  );
-});
+
+    db.query(
+      "UPDATE creators_photocard SET image_url = ? WHERE id = ?",
+      [image, id],
+      (err) => {
+        if (err)
+          return res
+            .status(500)
+            .json({ error: "Gagal memperbarui creators photocard" });
+        res
+          .status(200)
+          .json({ message: "Creators photocard berhasil diperbarui" });
+      },
+    );
+  },
+);
 
 app.put("/api/update-creators-photocard-statistics", (req, res) => {
   const creators = req.body.creators;
   const brand = req.body.brand;
   const projects = req.body.projects;
 
-  if(creators !== null && creators !== undefined) {
+  if (creators !== null && creators !== undefined) {
     db.query(
       "UPDATE creators_photocard_statistics SET creators = ?",
       [creators],
@@ -619,11 +632,14 @@ app.put("/api/update-creators-photocard-statistics", (req, res) => {
         if (err)
           return res
             .status(500)
-            .json({ error: "Gagal memperbarui creators photocard statistics (creators)" });
-      }
+            .json({
+              error:
+                "Gagal memperbarui creators photocard statistics (creators)",
+            });
+      },
     );
   }
-  if(brand !== null && brand !== undefined) {
+  if (brand !== null && brand !== undefined) {
     db.query(
       "UPDATE creators_photocard_statistics SET brand = ?",
       [brand],
@@ -631,11 +647,13 @@ app.put("/api/update-creators-photocard-statistics", (req, res) => {
         if (err)
           return res
             .status(500)
-            .json({ error: "Gagal memperbarui creators photocard statistics (brand)" });
-      }
+            .json({
+              error: "Gagal memperbarui creators photocard statistics (brand)",
+            });
+      },
     );
   }
-  if(projects !== null && projects !== undefined) {
+  if (projects !== null && projects !== undefined) {
     db.query(
       "UPDATE creators_photocard_statistics SET projects = ?",
       [projects],
@@ -643,14 +661,19 @@ app.put("/api/update-creators-photocard-statistics", (req, res) => {
         if (err)
           return res
             .status(500)
-            .json({ error: "Gagal memperbarui creators photocard statistics (projects)" });
-      }
+            .json({
+              error:
+                "Gagal memperbarui creators photocard statistics (projects)",
+            });
+      },
     );
   }
-  res.status(200).json({ message: "Creators photocard statistics berhasil diperbarui" });
-})
+  res
+    .status(200)
+    .json({ message: "Creators photocard statistics berhasil diperbarui" });
+});
 
-app.put("/api/update-contacts", upload.single("logo"), async (req, res) => {
+app.put("/api/update-contact", upload.single("logo"), async (req, res) => {
   const { instagram, gmail, phone_number1, phone_number2 } = req.body;
 
   const fields = [];
@@ -683,7 +706,7 @@ app.put("/api/update-contacts", upload.single("logo"), async (req, res) => {
     return res.status(400).json({ error: "Tidak ada data yang diperbarui" });
   }
 
-  db.query(`UPDATE contacts SET ${fields.join(", ")}`, values, (err) => {
+  db.query(`UPDATE contact SET ${fields.join(", ")}`, values, (err) => {
     if (err) return res.status(500).json({ error: "Gagal memperbarui kontak" });
     res.status(200).json({ message: "Kontak berhasil diperbarui" });
   });
@@ -749,27 +772,33 @@ app.delete("/api/delete-testimonials/:id", (req, res) => {
 });
 
 app.delete("/api/delete-creators-photocard/:id", (req, res) => {
-  db.query("DELETE FROM creators_photocard WHERE id = ?", [req.params.id], (err) => {
-    if (err)      
-      return res
-        .status(500)
-        .json({ error: "Gagal menghapus creators photocard" });
-    res.status(200).json({ message: "Creators photocard berhasil dihapus" });
-  });
+  db.query(
+    "DELETE FROM creators_photocard WHERE id = ?",
+    [req.params.id],
+    (err) => {
+      if (err)
+        return res
+          .status(500)
+          .json({ error: "Gagal menghapus creators photocard" });
+      res.status(200).json({ message: "Creators photocard berhasil dihapus" });
+    },
+  );
 });
 
 app.delete("/api/delete-creators-photocard-statistics", (req, res) => {
   db.query("DELETE FROM creators_photocard_statistics", (err) => {
-    if (err)      
+    if (err)
       return res
         .status(500)
         .json({ error: "Gagal menghapus creators photocard statistics" });
-    res.status(200).json({ message: "Creators photocard statistics berhasil dihapus" });
+    res
+      .status(200)
+      .json({ message: "Creators photocard statistics berhasil dihapus" });
   });
 });
 
-app.delete("/api/delete-contacts", (req, res) => {
-  db.query("DELETE FROM contacts", (err) => {
+app.delete("/api/delete-contact", (req, res) => {
+  db.query("DELETE FROM contact", (err) => {
     if (err) return res.status(500).json({ error: "Gagal menghapus kontak" });
     res.status(200).json({ message: "Kontak berhasil dihapus" });
   });

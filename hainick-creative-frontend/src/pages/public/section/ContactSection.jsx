@@ -1,55 +1,46 @@
 import { useState, useEffect } from "react";
 
 // =============================================
-// ICON COMPONENTS
+// PATH ICON LOKAL (relatif dari komponen ini)
+// Lokasi file   : src/storage/icon/
+// Lokasi komponen: src/components/sections/contact/  (mundur 3 folder)
+// =============================================
+import instagramIcon from "../../../storage/icon/instagram.png";
+import mailIcon from "../../../storage/icon/mail.png";
+import telephoneIcon from "../../../storage/icon/telephone.png";
+
+// =============================================
+// ICON COMPONENTS — gunakan <img> dengan file lokal
 // =============================================
 
 const InstagramIcon = () => (
-  <svg
-    width="20"
-    height="20"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.8"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <rect x="2" y="2" width="20" height="20" rx="5" />
-    <circle cx="12" cy="12" r="4" />
-    <circle cx="17.5" cy="6.5" r="0.5" fill="currentColor" stroke="none" />
-  </svg>
+  <img
+    src={instagramIcon}
+    alt="Instagram"
+    width={20}
+    height={20}
+    style={{ objectFit: "contain", display: "block" }}
+  />
 );
 
 const EmailIcon = () => (
-  <svg
-    width="20"
-    height="20"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.8"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <rect x="2" y="4" width="20" height="16" rx="3" />
-    <polyline points="2,4 12,13 22,4" />
-  </svg>
+  <img
+    src={mailIcon}
+    alt="Email"
+    width={20}
+    height={20}
+    style={{ objectFit: "contain", display: "block" }}
+  />
 );
 
 const PhoneIcon = () => (
-  <svg
-    width="20"
-    height="20"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.8"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.01 1.18 2 2 0 012 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 14.92z" />
-  </svg>
+  <img
+    src={telephoneIcon}
+    alt="Telephone"
+    width={20}
+    height={20}
+    style={{ objectFit: "contain", display: "block" }}
+  />
 );
 
 // =============================================
@@ -67,21 +58,21 @@ function ContactPanel({ contact }) {
       <span className="panel-brand">hainick.</span>
 
       <div className="panel-rows">
-        {contact.instagram_account && (
+        {contact.instagram && (
           <div className="panel-row">
             <span className="panel-icon">
               <InstagramIcon />
             </span>
-            <span className="panel-text">{contact.instagram_account}</span>
+            <span className="panel-text">{contact.instagram}</span>
           </div>
         )}
 
-        {contact.gmail_account && (
+        {contact.gmail && (
           <div className="panel-row">
             <span className="panel-icon">
               <EmailIcon />
             </span>
-            <span className="panel-text">{contact.gmail_account}</span>
+            <span className="panel-text">{contact.gmail}</span>
           </div>
         )}
 
@@ -219,7 +210,7 @@ export default function ContactSection() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/contacts")
+    fetch("http://localhost:8000/api/contact")
       .then((r) => {
         if (!r.ok) throw new Error("Gagal fetch contacts");
         return r.json();
