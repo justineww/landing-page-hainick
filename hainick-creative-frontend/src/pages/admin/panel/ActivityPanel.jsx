@@ -21,24 +21,46 @@ const LABEL_MAP = {
 // ─────────────────────────────────────────────────────────────────────────────
 // ActivityPanel
 // ─────────────────────────────────────────────────────────────────────────────
-
 const ActivityPanel = () => {
-  const [rows, setRows] = useState([]);
+  // savedRows  = last confirmed state from server
+  // pendingRows = working copy (modified by drag, not yet saved)
+  const [savedRows, setSavedRows] = useState([]);
+  const [pendingRows, setPendingRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [modal, setModal] = useState(null);
   const [toast, setToast] = useState(null);
 
   // drag state
   const [draggingId, setDraggingId] = useState(null);
-  const [dragOverSlot, setDragOverSlot] = useState(null); // image_type slot or "inactive"
+  const [dragOverSlot, setDragOverSlot] = useState(null);
   const [dragOverInactive, setDragOverInactive] = useState(false);
+
+  // ── Derived: is there unsaved changes?
+  const isDirty =
+    JSON.stringify(
+      pendingRows.map((r) => ({
+        id: r.id,
+        is_active: r.is_active,
+        image_type: r.image_type,
+      })),
+    ) !==
+    JSON.stringify(
+      savedRows.map((r) => ({
+        id: r.id,
+        is_active: r.is_active,
+        image_type: r.image_type,
+      })),
+    );
 
   const fetchData = async () => {
     setLoading(true);
     try {
       const res = await fetch(`${API}/updates-section`);
       const data = await res.json();
-      setRows(Array.isArray(data) ? data : []);
+      const rows = Array.isArray(data) ? data : [];
+      setSavedRows(rows);
+      setPendingRows(rows);
     } catch {
       showToast("Gagal memuat data", "error");
     } finally {
@@ -52,41 +74,17 @@ const ActivityPanel = () => {
 
   const showToast = (msg, type = "success") => {
     setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000);
+    setTimeout(() => setToast(null), 3500);
   };
 
-  const activeRows = rows.filter((r) => r.is_active == 1);
-  const inactiveRows = rows.filter((r) => r.is_active != 1);
+  // ── Derived rows from pendingRows
+  const activeRows = pendingRows.filter((r) => r.is_active == 1);
+  const inactiveRows = pendingRows.filter((r) => r.is_active != 1);
 
-  // ── Slot map: which active row occupies which slot ──
   const slotMap = {};
   IMAGE_TYPE_OPTIONS.forEach((slot) => {
     slotMap[slot] = activeRows.find((r) => r.image_type === slot) || null;
   });
-
-  // ── Toggle active via API ──
-  const setActive = async (row, willActivate, newImageType) => {
-    try {
-      await fetch(`${API}/update-updates-section-status/${row.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ is_active: willActivate ? 1 : 0 }),
-      });
-      setRows((prev) =>
-        prev.map((r) =>
-          r.id === row.id
-            ? {
-                ...r,
-                is_active: willActivate ? 1 : 0,
-                image_type: newImageType ?? r.image_type,
-              }
-            : r,
-        ),
-      );
-    } catch {
-      showToast("Gagal mengubah status", "error");
-    }
-  };
 
   // ── Drag handlers ──
   const handleDragStart = (e, row) => {
@@ -100,64 +98,96 @@ const ActivityPanel = () => {
     setDragOverInactive(false);
   };
 
-  // Drop onto an active SLOT
-  const handleDropOnSlot = async (e, slot) => {
+  // ── Drop onto an active SLOT (only updates local state, NO API call) ──
+  const handleDropOnSlot = (e, slot) => {
     e.preventDefault();
     setDragOverSlot(null);
     if (!draggingId) return;
 
-    const row = rows.find((r) => r.id === draggingId);
-    if (!row) return;
+    const draggedRow = pendingRows.find((r) => r.id === draggingId);
+    if (!draggedRow) return;
 
-    // Already in this slot → no-op
-    if (row.is_active == 1 && row.image_type === slot) return;
+    // Already in this exact slot → no-op
+    if (draggedRow.is_active == 1 && draggedRow.image_type === slot) return;
 
-    // If slot already occupied by another card → swap or displace
     const occupant = slotMap[slot];
+    const willDisplace = occupant && occupant.id !== draggedRow.id;
 
-    if (occupant && occupant.id !== row.id) {
-      // Move occupant to inactive
-      await setActive(occupant, false, occupant.image_type);
-    }
-
-    // Activate dragged row into this slot
-    // We need to update image_type too if it differs
-    try {
-      // Update image_type first if needed
-      if (row.image_type !== slot) {
-        await fetch(`${API}/update-updates-section-image-type/${row.id}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ image_type: slot }),
-        });
-      }
-      await fetch(`${API}/update-updates-section-status/${row.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ is_active: 1 }),
-      });
-      setRows((prev) =>
-        prev.map((r) => {
-          if (r.id === row.id) return { ...r, is_active: 1, image_type: slot };
-          if (occupant && r.id === occupant.id) return { ...r, is_active: 0 };
-          return r;
-        }),
-      );
-      showToast(`Dipindah ke slot ${LABEL_MAP[slot]}`);
-    } catch {
-      showToast("Gagal memindahkan", "error");
-    }
+    setPendingRows((prev) =>
+      prev.map((r) => {
+        if (r.id === draggedRow.id) {
+          return { ...r, is_active: 1, image_type: slot };
+        }
+        if (willDisplace && r.id === occupant.id) {
+          return { ...r, is_active: 0 };
+        }
+        return r;
+      }),
+    );
   };
 
-  // Drop onto inactive zone
-  const handleDropOnInactive = async (e) => {
+  // ── Drop onto inactive zone (only updates local state, NO API call) ──
+  const handleDropOnInactive = (e) => {
     e.preventDefault();
     setDragOverInactive(false);
     if (!draggingId) return;
-    const row = rows.find((r) => r.id === draggingId);
+    const row = pendingRows.find((r) => r.id === draggingId);
     if (!row || row.is_active != 1) return;
-    await setActive(row, false, row.image_type);
-    showToast("Activity dinonaktifkan");
+
+    setPendingRows((prev) =>
+      prev.map((r) => (r.id === row.id ? { ...r, is_active: 0 } : r)),
+    );
+  };
+
+  // ── BATAL: reset pending ke saved ──
+  const handleCancel = () => {
+    setPendingRows(savedRows);
+  };
+
+  // ── SIMPAN: kirim semua perubahan ke API ──
+  const handleSaveChanges = async () => {
+    setSaving(true);
+    try {
+      // Find rows whose is_active or image_type changed
+      const changed = pendingRows.filter((pr) => {
+        const sr = savedRows.find((s) => s.id === pr.id);
+        if (!sr) return false;
+        return sr.is_active != pr.is_active || sr.image_type !== pr.image_type;
+      });
+
+      // Run all API updates in parallel
+      await Promise.all(
+        changed.map(async (pr) => {
+          const sr = savedRows.find((s) => s.id === pr.id);
+
+          // Update image_type if changed
+          if (sr.image_type !== pr.image_type && pr.image_type) {
+            await fetch(`${API}/update-updates-section-image-type/${pr.id}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ image_type: pr.image_type }),
+            });
+          }
+
+          // Update is_active if changed
+          if (sr.is_active != pr.is_active) {
+            await fetch(`${API}/update-updates-section-status/${pr.id}`, {
+              method: "PUT",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ is_active: pr.is_active }),
+            });
+          }
+        }),
+      );
+
+      // Commit: saved = pending
+      setSavedRows(pendingRows);
+      showToast("✓ Perubahan berhasil disimpan");
+    } catch {
+      showToast("Gagal menyimpan perubahan", "error");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleDelete = async (row) => {
@@ -166,7 +196,9 @@ const ActivityPanel = () => {
       await fetch(`${API}/delete-updates-section/${row.id}`, {
         method: "DELETE",
       });
-      setRows((prev) => prev.filter((r) => r.id !== row.id));
+      const next = pendingRows.filter((r) => r.id !== row.id);
+      setSavedRows((prev) => prev.filter((r) => r.id !== row.id));
+      setPendingRows(next);
       showToast("Activity dihapus");
     } catch {
       showToast("Gagal menghapus", "error");
@@ -245,6 +277,64 @@ const ActivityPanel = () => {
           color: #15803d;
         }
 
+        /* ── Save/Cancel bar ── */
+        .ap-save-bar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 1rem;
+          background: #fffbeb;
+          border: 1.5px solid #fbbf24;
+          border-radius: 12px;
+          padding: 0.85rem 1.2rem;
+          animation: ap-bar-in 0.25s ease;
+        }
+        @keyframes ap-bar-in {
+          from { opacity: 0; transform: translateY(-8px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .ap-save-bar-msg {
+          font-size: 0.83rem;
+          font-weight: 600;
+          color: #92400e;
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+        }
+        .ap-save-bar-actions { display: flex; gap: 0.6rem; }
+
+        .btn-bar-cancel {
+          background: #fff;
+          border: 1.5px solid #e5e7eb;
+          border-radius: 8px;
+          padding: 0.45rem 1rem;
+          font-family: 'Plus Jakarta Sans', sans-serif;
+          font-size: 0.82rem;
+          font-weight: 600;
+          cursor: pointer;
+          color: #374151;
+          transition: background 0.15s, border-color 0.15s;
+        }
+        .btn-bar-cancel:hover { background: #f9fafb; border-color: #d1d5db; }
+
+        .btn-bar-save {
+          background: #1a2744;
+          color: #fff;
+          border: none;
+          border-radius: 8px;
+          padding: 0.45rem 1.2rem;
+          font-family: 'Plus Jakarta Sans', sans-serif;
+          font-size: 0.82rem;
+          font-weight: 700;
+          cursor: pointer;
+          transition: background 0.2s;
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+        }
+        .btn-bar-save:hover:not(:disabled) { background: #263660; }
+        .btn-bar-save:disabled { opacity: 0.55; cursor: not-allowed; }
+
         /* ── Active zone: 5-slot grid ── */
         .ap-active-zone {
           background: #f8fafc;
@@ -252,10 +342,6 @@ const ActivityPanel = () => {
           border-radius: 16px;
           padding: 1.1rem;
           transition: border-color 0.2s, background 0.2s;
-        }
-        .ap-active-zone.drag-over {
-          border-color: #1a2744;
-          background: #f0f4ff;
         }
 
         .ap-slots-top {
@@ -339,10 +425,7 @@ const ActivityPanel = () => {
           gap: 6px;
         }
         .ap-slot-card:hover .ap-slot-card-overlay { opacity: 1; }
-        .ap-slot-card-actions {
-          display: flex;
-          gap: 5px;
-        }
+        .ap-slot-card-actions { display: flex; gap: 5px; }
         .ap-slot-card-btn {
           background: rgba(255,255,255,0.92);
           border: none;
@@ -381,6 +464,20 @@ const ActivityPanel = () => {
           color: #1a2744;
           pointer-events: none;
           z-index: 2;
+        }
+
+        /* pending indicator badge */
+        .ap-slot-pending-dot {
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background: #f59e0b;
+          border: 2px solid #fff;
+          z-index: 3;
+          pointer-events: none;
         }
 
         /* dragging state */
@@ -584,6 +681,8 @@ const ActivityPanel = () => {
         @media (max-width: 600px) {
           .ap-slots-top { grid-template-columns: repeat(2, 1fr); }
           .ap-inactive-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
+          .ap-save-bar { flex-direction: column; align-items: stretch; }
+          .ap-save-bar-actions { justify-content: flex-end; }
         }
       `}</style>
 
@@ -611,10 +710,36 @@ const ActivityPanel = () => {
             <strong>Cara pakai:</strong> Drag kartu dari <em>Non-aktif</em> ke
             slot posisi yang diinginkan di zona <em>Aktif</em> untuk
             menampilkannya di landing page. Drag kartu aktif ke zona{" "}
-            <em>Non-aktif</em> untuk menyembunyikannya. Kartu aktif yang
-            tergantikan otomatis pindah ke Non-aktif.
+            <em>Non-aktif</em> untuk menyembunyikannya. Setelah selesai
+            mengatur, klik <strong>Simpan Perubahan</strong> untuk menerapkan ke
+            tampilan depan.
           </span>
         </div>
+
+        {/* ── Save/Cancel bar (hanya muncul jika ada perubahan) ── */}
+        {isDirty && (
+          <div className="ap-save-bar">
+            <span className="ap-save-bar-msg">
+              ⚠️ Ada perubahan yang belum disimpan
+            </span>
+            <div className="ap-save-bar-actions">
+              <button
+                className="btn-bar-cancel"
+                onClick={handleCancel}
+                disabled={saving}
+              >
+                Batal
+              </button>
+              <button
+                className="btn-bar-save"
+                onClick={handleSaveChanges}
+                disabled={saving}
+              >
+                {saving ? "⏳ Menyimpan…" : "✓ Simpan Perubahan"}
+              </button>
+            </div>
+          </div>
+        )}
 
         {loading ? (
           <div
@@ -624,9 +749,7 @@ const ActivityPanel = () => {
           </div>
         ) : (
           <>
-            {/* ═══════════════════════════════════════
-                ZONA AKTIF
-            ═══════════════════════════════════════ */}
+            {/* ═══ ZONA AKTIF ═══ */}
             <div>
               <p className="ap-section-label">
                 Aktif
@@ -646,6 +769,7 @@ const ActivityPanel = () => {
                       card={slotMap[slot]}
                       draggingId={draggingId}
                       isDragTarget={dragOverSlot === slot}
+                      savedRows={savedRows}
                       onDragStart={handleDragStart}
                       onDragEnd={handleDragEnd}
                       onDragOver={(e) => {
@@ -669,6 +793,7 @@ const ActivityPanel = () => {
                       card={slotMap[slot]}
                       draggingId={draggingId}
                       isDragTarget={dragOverSlot === slot}
+                      savedRows={savedRows}
                       onDragStart={handleDragStart}
                       onDragEnd={handleDragEnd}
                       onDragOver={(e) => {
@@ -686,9 +811,7 @@ const ActivityPanel = () => {
               </div>
             </div>
 
-            {/* ═══════════════════════════════════════
-                ZONA NON-AKTIF
-            ═══════════════════════════════════════ */}
+            {/* ═══ ZONA NON-AKTIF ═══ */}
             <div>
               <p className="ap-section-label">
                 Non-aktif
@@ -717,6 +840,7 @@ const ActivityPanel = () => {
                         key={row.id}
                         row={row}
                         draggingId={draggingId}
+                        savedRows={savedRows}
                         onDragStart={handleDragStart}
                         onDragEnd={handleDragEnd}
                         onEdit={() => setModal({ mode: "edit", data: row })}
@@ -758,7 +882,7 @@ const ActivityPanel = () => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ActiveSlot — satu slot di zona aktif
+// ActiveSlot
 // ─────────────────────────────────────────────────────────────────────────────
 function ActiveSlot({
   slot,
@@ -766,6 +890,7 @@ function ActiveSlot({
   card,
   draggingId,
   isDragTarget,
+  savedRows,
   onDragStart,
   onDragEnd,
   onDragOver,
@@ -775,7 +900,17 @@ function ActiveSlot({
   onDelete,
   wide,
 }) {
-  const isEmpty = !card;
+  // Check if this card is pending (different from saved state)
+  const isPending = card
+    ? (() => {
+        const saved = savedRows.find((s) => s.id === card.id);
+        return (
+          !saved ||
+          saved.is_active != card.is_active ||
+          saved.image_type !== card.image_type
+        );
+      })()
+    : false;
 
   return (
     <div
@@ -785,7 +920,7 @@ function ActiveSlot({
       onDrop={onDrop}
       style={wide ? { aspectRatio: "16/9" } : {}}
     >
-      {isEmpty ? (
+      {!card ? (
         <>
           <span className="ap-slot-empty-icon">⊕</span>
           <span className="ap-slot-label">{label}</span>
@@ -798,9 +933,10 @@ function ActiveSlot({
           onDragEnd={onDragEnd}
         >
           <img src={`http://localhost:8000${card.image_url}`} alt={label} />
-          {/* slot label badge */}
           <span className="ap-slot-badge">{label}</span>
-          {/* hover overlay */}
+          {isPending && (
+            <span className="ap-slot-pending-dot" title="Belum disimpan" />
+          )}
           <div className="ap-slot-card-overlay">
             <span className="ap-slot-card-drag-hint">⠿ Drag untuk pindah</span>
             <div className="ap-slot-card-actions">
@@ -822,22 +958,32 @@ function ActiveSlot({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// InactiveCard — kartu di zona non-aktif
+// InactiveCard
 // ─────────────────────────────────────────────────────────────────────────────
 function InactiveCard({
   row,
   draggingId,
+  savedRows,
   onDragStart,
   onDragEnd,
   onEdit,
   onDelete,
 }) {
+  // Dot jika kartu ini sebelumnya aktif tapi sekarang pending non-aktif
+  const isPending = (() => {
+    const saved = savedRows.find((s) => s.id === row.id);
+    return saved && saved.is_active != row.is_active;
+  })();
+
   return (
     <div
       className={`ap-inactive-card${draggingId === row.id ? " is-dragging" : ""}`}
       draggable
       onDragStart={(e) => onDragStart(e, row)}
       onDragEnd={onDragEnd}
+      style={
+        isPending ? { outline: "2px solid #f59e0b", outlineOffset: "2px" } : {}
+      }
     >
       {row.image_url ? (
         <img src={`http://localhost:8000${row.image_url}`} alt="" />
