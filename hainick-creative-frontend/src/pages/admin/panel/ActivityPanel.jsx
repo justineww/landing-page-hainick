@@ -1,37 +1,209 @@
-// TODO: Sambungkan ke API backend untuk fetch & update data Activity
+import { useState, useEffect, useRef } from "react";
+
+const API = "http://localhost:8000/api";
+
+const IMAGE_TYPE_OPTIONS = [
+  "image_left",
+  "image_center",
+  "image_right",
+  "image_bottom_left",
+  "image_bottom_right",
+];
+
+const LABEL_MAP = {
+  image_left: "Kiri Atas",
+  image_center: "Tengah Atas",
+  image_right: "Kanan Atas",
+  image_bottom_left: "Kiri Bawah",
+  image_bottom_right: "Kanan Bawah",
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ActivityPanel
+// ─────────────────────────────────────────────────────────────────────────────
 
 const ActivityPanel = () => {
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [modal, setModal] = useState(null);
+  const [toast, setToast] = useState(null);
+
+  // drag state
+  const [draggingId, setDraggingId] = useState(null);
+  const [dragOverSlot, setDragOverSlot] = useState(null); // image_type slot or "inactive"
+  const [dragOverInactive, setDragOverInactive] = useState(false);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${API}/updates-section`);
+      const data = await res.json();
+      setRows(Array.isArray(data) ? data : []);
+    } catch {
+      showToast("Gagal memuat data", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const showToast = (msg, type = "success") => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const activeRows = rows.filter((r) => r.is_active == 1);
+  const inactiveRows = rows.filter((r) => r.is_active != 1);
+
+  // ── Slot map: which active row occupies which slot ──
+  const slotMap = {};
+  IMAGE_TYPE_OPTIONS.forEach((slot) => {
+    slotMap[slot] = activeRows.find((r) => r.image_type === slot) || null;
+  });
+
+  // ── Toggle active via API ──
+  const setActive = async (row, willActivate, newImageType) => {
+    try {
+      await fetch(`${API}/update-updates-section-status/${row.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_active: willActivate ? 1 : 0 }),
+      });
+      setRows((prev) =>
+        prev.map((r) =>
+          r.id === row.id
+            ? {
+                ...r,
+                is_active: willActivate ? 1 : 0,
+                image_type: newImageType ?? r.image_type,
+              }
+            : r,
+        ),
+      );
+    } catch {
+      showToast("Gagal mengubah status", "error");
+    }
+  };
+
+  // ── Drag handlers ──
+  const handleDragStart = (e, row) => {
+    setDraggingId(row.id);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragEnd = () => {
+    setDraggingId(null);
+    setDragOverSlot(null);
+    setDragOverInactive(false);
+  };
+
+  // Drop onto an active SLOT
+  const handleDropOnSlot = async (e, slot) => {
+    e.preventDefault();
+    setDragOverSlot(null);
+    if (!draggingId) return;
+
+    const row = rows.find((r) => r.id === draggingId);
+    if (!row) return;
+
+    // Already in this slot → no-op
+    if (row.is_active == 1 && row.image_type === slot) return;
+
+    // If slot already occupied by another card → swap or displace
+    const occupant = slotMap[slot];
+
+    if (occupant && occupant.id !== row.id) {
+      // Move occupant to inactive
+      await setActive(occupant, false, occupant.image_type);
+    }
+
+    // Activate dragged row into this slot
+    // We need to update image_type too if it differs
+    try {
+      // Update image_type first if needed
+      if (row.image_type !== slot) {
+        await fetch(`${API}/update-updates-section-image-type/${row.id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image_type: slot }),
+        });
+      }
+      await fetch(`${API}/update-updates-section-status/${row.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_active: 1 }),
+      });
+      setRows((prev) =>
+        prev.map((r) => {
+          if (r.id === row.id) return { ...r, is_active: 1, image_type: slot };
+          if (occupant && r.id === occupant.id) return { ...r, is_active: 0 };
+          return r;
+        }),
+      );
+      showToast(`Dipindah ke slot ${LABEL_MAP[slot]}`);
+    } catch {
+      showToast("Gagal memindahkan", "error");
+    }
+  };
+
+  // Drop onto inactive zone
+  const handleDropOnInactive = async (e) => {
+    e.preventDefault();
+    setDragOverInactive(false);
+    if (!draggingId) return;
+    const row = rows.find((r) => r.id === draggingId);
+    if (!row || row.is_active != 1) return;
+    await setActive(row, false, row.image_type);
+    showToast("Activity dinonaktifkan");
+  };
+
+  const handleDelete = async (row) => {
+    if (!window.confirm(`Hapus activity ini (ID: ${row.id})?`)) return;
+    try {
+      await fetch(`${API}/delete-updates-section/${row.id}`, {
+        method: "DELETE",
+      });
+      setRows((prev) => prev.filter((r) => r.id !== row.id));
+      showToast("Activity dihapus");
+    } catch {
+      showToast("Gagal menghapus", "error");
+    }
+  };
+
   return (
     <>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
-        .panel-wrap {
+        *, *::before, *::after { box-sizing: border-box; }
+
+        .ap-wrap {
           font-family: 'Plus Jakarta Sans', sans-serif;
           display: flex;
           flex-direction: column;
-          gap: 1.5rem;
+          gap: 1.75rem;
         }
 
-        .panel-header {
+        /* ── Header ── */
+        .ap-header {
           display: flex;
           align-items: center;
           justify-content: space-between;
           flex-wrap: wrap;
           gap: 1rem;
         }
-        .panel-header-left { display: flex; flex-direction: column; gap: 2px; }
-        .panel-page-title {
+        .ap-header-left { display: flex; flex-direction: column; gap: 3px; }
+        .ap-page-title {
           font-size: 1.35rem;
           font-weight: 800;
           color: #0a0a0a;
           letter-spacing: -0.02em;
         }
-        .panel-page-sub {
-          font-size: 0.82rem;
-          color: #9ca3af;
-        }
-        .panel-add-btn {
+        .ap-page-sub { font-size: 0.82rem; color: #9ca3af; }
+        .ap-add-btn {
           background: #1a2744;
           color: #fff;
           border: none;
@@ -46,202 +218,818 @@ const ActivityPanel = () => {
           gap: 0.4rem;
           transition: background 0.2s, transform 0.15s;
         }
-        .panel-add-btn:hover { background: #263660; transform: translateY(-1px); }
+        .ap-add-btn:hover { background: #263660; transform: translateY(-1px); }
 
-        .panel-stats {
-          display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-          gap: 1rem;
-        }
-        .stat-card {
-          background: #fff;
-          border-radius: 14px;
-          padding: 1.2rem 1.4rem;
-          border: 1px solid #e9ecf0;
+        /* ── Section titles ── */
+        .ap-section-label {
+          font-size: 0.72rem;
+          font-weight: 700;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          color: #6b7280;
+          margin: 0 0 0.75rem;
           display: flex;
+          align-items: center;
+          gap: 0.5rem;
+        }
+        .ap-section-label .count-pill {
+          background: #e0e7ff;
+          color: #3730a3;
+          border-radius: 100px;
+          padding: 0.1rem 0.55rem;
+          font-size: 0.68rem;
+          font-weight: 800;
+        }
+        .ap-section-label .count-pill.green {
+          background: #dcfce7;
+          color: #15803d;
+        }
+
+        /* ── Active zone: 5-slot grid ── */
+        .ap-active-zone {
+          background: #f8fafc;
+          border: 1.5px dashed #cbd5e1;
+          border-radius: 16px;
+          padding: 1.1rem;
+          transition: border-color 0.2s, background 0.2s;
+        }
+        .ap-active-zone.drag-over {
+          border-color: #1a2744;
+          background: #f0f4ff;
+        }
+
+        .ap-slots-top {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 10px;
+          margin-bottom: 10px;
+        }
+        .ap-slots-bottom {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 10px;
+        }
+
+        /* ── Single slot ── */
+        .ap-slot {
+          position: relative;
+          border-radius: 10px;
+          border: 2px dashed #e2e8f0;
+          background: #fff;
+          aspect-ratio: 4/3;
+          display: flex;
+          align-items: center;
+          justify-content: center;
           flex-direction: column;
           gap: 0.4rem;
-        }
-        .stat-label {
-          font-size: 0.75rem;
-          color: #9ca3af;
-          font-weight: 600;
-          text-transform: uppercase;
-          letter-spacing: 0.06em;
-        }
-        .stat-value {
-          font-size: 1.8rem;
-          font-weight: 800;
-          color: #1a2744;
-          line-height: 1;
-        }
-        .stat-hint { font-size: 0.75rem; color: #6b7280; }
-
-        .panel-card {
-          background: #fff;
-          border-radius: 16px;
-          border: 1px solid #e9ecf0;
+          transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
           overflow: hidden;
         }
-        .panel-card-header {
-          padding: 1.1rem 1.4rem;
+        .ap-slots-bottom .ap-slot { aspect-ratio: 16/9; }
+
+        .ap-slot.has-card { border-style: solid; border-color: transparent; }
+        .ap-slot.drag-target {
+          border-color: #1a2744;
+          background: #eef2ff;
+          box-shadow: 0 0 0 4px rgba(26,39,68,0.08);
+        }
+        .ap-slot-label {
+          font-size: 0.7rem;
+          font-weight: 700;
+          color: #94a3b8;
+          letter-spacing: 0.05em;
+          text-align: center;
+          pointer-events: none;
+          user-select: none;
+          padding: 0 0.5rem;
+        }
+        .ap-slot-empty-icon {
+          font-size: 1.2rem;
+          opacity: 0.35;
+          pointer-events: none;
+        }
+
+        /* ── Card inside slot ── */
+        .ap-slot-card {
+          position: absolute;
+          inset: 0;
+          border-radius: 8px;
+          overflow: hidden;
+          cursor: grab;
+        }
+        .ap-slot-card:active { cursor: grabbing; }
+        .ap-slot-card img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+          pointer-events: none;
+          user-select: none;
+        }
+        .ap-slot-card-overlay {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(to top, rgba(10,10,10,0.7) 0%, transparent 50%);
+          opacity: 0;
+          transition: opacity 0.2s;
+          display: flex;
+          flex-direction: column;
+          justify-content: flex-end;
+          padding: 10px;
+          gap: 6px;
+        }
+        .ap-slot-card:hover .ap-slot-card-overlay { opacity: 1; }
+        .ap-slot-card-actions {
+          display: flex;
+          gap: 5px;
+        }
+        .ap-slot-card-btn {
+          background: rgba(255,255,255,0.92);
+          border: none;
+          border-radius: 6px;
+          padding: 0.2rem 0.55rem;
+          font-family: 'Plus Jakarta Sans', sans-serif;
+          font-size: 0.7rem;
+          font-weight: 700;
+          cursor: pointer;
+          color: #1a2744;
+          transition: background 0.15s;
+        }
+        .ap-slot-card-btn:hover { background: #fff; }
+        .ap-slot-card-btn.del { color: #ef4444; }
+        .ap-slot-card-btn.del:hover { background: #fef2f2; }
+        .ap-slot-card-drag-hint {
+          font-size: 0.65rem;
+          color: rgba(255,255,255,0.75);
+          font-weight: 600;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+
+        /* slot label badge on top of card */
+        .ap-slot-badge {
+          position: absolute;
+          top: 8px;
+          left: 8px;
+          background: rgba(255,255,255,0.9);
+          backdrop-filter: blur(4px);
+          border-radius: 6px;
+          padding: 0.15rem 0.5rem;
+          font-size: 0.65rem;
+          font-weight: 700;
+          color: #1a2744;
+          pointer-events: none;
+          z-index: 2;
+        }
+
+        /* dragging state */
+        .ap-slot-card.is-dragging { opacity: 0.4; }
+
+        /* ── Inactive zone ── */
+        .ap-inactive-zone {
+          border: 1.5px dashed #e2e8f0;
+          border-radius: 16px;
+          padding: 1.1rem;
+          background: #fff;
+          min-height: 120px;
+          transition: border-color 0.2s, background 0.2s;
+        }
+        .ap-inactive-zone.drag-over {
+          border-color: #f59e0b;
+          background: #fffbeb;
+        }
+
+        .ap-inactive-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+          gap: 10px;
+        }
+
+        .ap-inactive-card {
+          position: relative;
+          border-radius: 10px;
+          overflow: hidden;
+          background: #f1f5f9;
+          aspect-ratio: 4/3;
+          cursor: grab;
+          border: 2px solid transparent;
+          transition: border-color 0.2s, transform 0.15s;
+        }
+        .ap-inactive-card:active { cursor: grabbing; }
+        .ap-inactive-card:hover { transform: translateY(-2px); }
+        .ap-inactive-card.is-dragging { opacity: 0.35; }
+        .ap-inactive-card img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+          pointer-events: none;
+          user-select: none;
+        }
+        .ap-inactive-card-overlay {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(to top, rgba(10,10,10,0.65) 0%, transparent 55%);
+          opacity: 0;
+          transition: opacity 0.2s;
+          display: flex;
+          flex-direction: column;
+          justify-content: flex-end;
+          padding: 8px;
+          gap: 5px;
+        }
+        .ap-inactive-card:hover .ap-inactive-card-overlay { opacity: 1; }
+        .ap-inactive-card-actions { display: flex; gap: 4px; }
+        .ap-inactive-card-btn {
+          background: rgba(255,255,255,0.9);
+          border: none;
+          border-radius: 5px;
+          padding: 0.18rem 0.5rem;
+          font-family: 'Plus Jakarta Sans', sans-serif;
+          font-size: 0.65rem;
+          font-weight: 700;
+          cursor: pointer;
+          color: #1a2744;
+          transition: background 0.15s;
+        }
+        .ap-inactive-card-btn:hover { background: #fff; }
+        .ap-inactive-card-btn.del { color: #ef4444; }
+        .ap-inactive-card-btn.del:hover { background: #fef2f2; }
+        .ap-inactive-card-drag-hint {
+          font-size: 0.6rem;
+          color: rgba(255,255,255,0.75);
+          font-weight: 600;
+        }
+
+        .ap-inactive-empty {
+          padding: 2rem;
+          text-align: center;
+          color: #cbd5e1;
+          font-size: 0.82rem;
+        }
+
+        /* ── Legend ── */
+        .ap-legend {
+          background: #f8fafc;
+          border-radius: 10px;
+          padding: 0.75rem 1rem;
+          font-size: 0.78rem;
+          color: #64748b;
+          display: flex;
+          align-items: flex-start;
+          gap: 0.6rem;
+          line-height: 1.6;
+        }
+        .ap-legend-icon { font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
+
+        /* ── Toast ── */
+        .ap-toast {
+          position: fixed;
+          bottom: 2rem;
+          right: 2rem;
+          z-index: 9999;
+          padding: 0.75rem 1.2rem;
+          border-radius: 10px;
+          font-family: 'Plus Jakarta Sans', sans-serif;
+          font-size: 0.85rem;
+          font-weight: 600;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+          animation: ap-slidein 0.25s ease;
+        }
+        .ap-toast.success { background: #1a2744; color: #fff; }
+        .ap-toast.error   { background: #ef4444; color: #fff; }
+        @keyframes ap-slidein {
+          from { opacity: 0; transform: translateY(12px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ── Modal ── */
+        .ap-modal-bg {
+          position: fixed; inset: 0; z-index: 1000;
+          background: rgba(10,10,10,0.45);
+          backdrop-filter: blur(2px);
+          display: flex; align-items: center; justify-content: center;
+          padding: 1rem;
+        }
+        .ap-modal {
+          background: #fff;
+          border-radius: 18px;
+          width: 100%;
+          max-width: 500px;
+          box-shadow: 0 24px 64px rgba(0,0,0,0.18);
+          overflow: hidden;
+        }
+        .ap-modal-header {
+          padding: 1.3rem 1.5rem 1rem;
           border-bottom: 1px solid #f1f5f9;
           display: flex;
           align-items: center;
           justify-content: space-between;
-          flex-wrap: wrap;
-          gap: 0.75rem;
         }
-        .panel-card-title {
-          font-size: 0.9rem;
-          font-weight: 700;
-          color: #1a2744;
+        .ap-modal-title { font-size: 1rem; font-weight: 700; color: #1a2744; }
+        .ap-modal-close {
+          background: none; border: none; font-size: 1.2rem;
+          cursor: pointer; color: #9ca3af; line-height: 1;
         }
-        .panel-search {
-          padding: 0.45rem 0.9rem;
+        .ap-modal-close:hover { color: #374151; }
+        .ap-modal-body { padding: 1.3rem 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
+        .ap-modal-footer {
+          padding: 1rem 1.5rem;
+          border-top: 1px solid #f1f5f9;
+          display: flex; gap: 0.75rem; justify-content: flex-end;
+        }
+        .ap-field { display: flex; flex-direction: column; gap: 0.35rem; }
+        .ap-field label { font-size: 0.8rem; font-weight: 600; color: #374151; }
+        .ap-field select,
+        .ap-field input[type="text"],
+        .ap-field textarea {
+          padding: 0.55rem 0.85rem;
           border: 1.5px solid #e5e7eb;
           border-radius: 8px;
           font-family: 'Plus Jakarta Sans', sans-serif;
-          font-size: 0.82rem;
+          font-size: 0.85rem;
           outline: none;
-          width: 200px;
           transition: border-color 0.2s;
+          color: #0a0a0a;
         }
-        .panel-search:focus { border-color: #1a2744; }
-
-        .panel-table-wrap { overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; font-size: 0.855rem; }
-        thead tr { background: #f8fafc; }
-        th {
-          padding: 0.75rem 1.2rem;
-          text-align: left;
-          font-size: 0.75rem;
-          font-weight: 700;
-          color: #6b7280;
-          letter-spacing: 0.06em;
-          text-transform: uppercase;
-          white-space: nowrap;
+        .ap-field select:focus,
+        .ap-field input[type="text"]:focus,
+        .ap-field textarea:focus { border-color: #1a2744; }
+        .ap-field textarea { resize: vertical; min-height: 90px; }
+        .ap-field input[type="file"] { font-size: 0.82rem; color: #6b7280; }
+        .ap-img-preview {
+          width: 100%;
+          max-height: 140px;
+          object-fit: cover;
+          border-radius: 8px;
+          margin-top: 0.4rem;
         }
-        td {
-          padding: 0.85rem 1.2rem;
-          color: #374151;
-          border-top: 1px solid #f1f5f9;
-          vertical-align: middle;
+        .btn-cancel {
+          background: #f1f5f9; border: none; border-radius: 9px;
+          padding: 0.6rem 1.2rem; font-family: 'Plus Jakarta Sans', sans-serif;
+          font-size: 0.875rem; font-weight: 600; cursor: pointer;
+          color: #374151; transition: background 0.2s;
         }
-        tr:hover td { background: #f8fafc; }
-
-        .badge {
-          display: inline-block;
-          padding: 0.2rem 0.65rem;
-          border-radius: 100px;
-          font-size: 0.72rem;
-          font-weight: 700;
+        .btn-cancel:hover { background: #e2e8f0; }
+        .btn-save {
+          background: #1a2744; color: #fff; border: none; border-radius: 9px;
+          padding: 0.6rem 1.4rem; font-family: 'Plus Jakarta Sans', sans-serif;
+          font-size: 0.875rem; font-weight: 600; cursor: pointer;
+          transition: background 0.2s;
         }
-        .badge-active { background: #dcfce7; color: #16a34a; }
-        .badge-draft  { background: #fef9c3; color: #ca8a04; }
-
-        .action-btn {
-          background: none;
-          border: 1.5px solid #e5e7eb;
-          border-radius: 7px;
-          padding: 0.28rem 0.65rem;
-          font-family: 'Plus Jakarta Sans', sans-serif;
-          font-size: 0.75rem;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all 0.18s;
-          color: #374151;
-        }
-        .action-btn:hover { border-color: #1a2744; color: #1a2744; }
-        .action-btn.del:hover { border-color: #ef4444; color: #ef4444; }
-
-        .empty-state {
-          padding: 3rem;
-          text-align: center;
-          color: #9ca3af;
-          font-size: 0.9rem;
-        }
-        .empty-icon { font-size: 2rem; margin-bottom: 0.5rem; }
+        .btn-save:hover { background: #263660; }
+        .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
 
         @media (max-width: 600px) {
-          .panel-search { width: 100%; }
-          th, td { padding: 0.65rem 0.85rem; }
+          .ap-slots-top { grid-template-columns: repeat(2, 1fr); }
+          .ap-inactive-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
         }
       `}</style>
 
-      <div className="panel-wrap">
-        <div className="panel-header">
-          <div className="panel-header-left">
-            <h1 className="panel-page-title">◉ Activity</h1>
-            <p className="panel-page-sub">Kelola portofolio dan aktivitas</p>
+      <div className="ap-wrap">
+        {/* ── Header ── */}
+        <div className="ap-header">
+          <div className="ap-header-left">
+            <h1 className="ap-page-title">◉ Activity</h1>
+            <p className="ap-page-sub">
+              Drag kartu ke slot posisi untuk mengaktifkan · maks. 5 aktif
+            </p>
           </div>
-          <button className="panel-add-btn">+ Tambah Activity</button>
+          <button
+            className="ap-add-btn"
+            onClick={() => setModal({ mode: "add" })}
+          >
+            + Tambah Activity
+          </button>
         </div>
 
-        <div className="panel-stats">
-          <div className="stat-card">
-            <span className="stat-label">Total</span>
-            <span className="stat-value">0</span>
-            {/* TODO: isi dari API */}
-            <span className="stat-hint">item terdaftar</span>
-          </div>
-          <div className="stat-card">
-            <span className="stat-label">Aktif</span>
-            <span className="stat-value">0</span>
-            <span className="stat-hint">ditampilkan di landing</span>
-          </div>
-          <div className="stat-card">
-            <span className="stat-label">Draft</span>
-            <span className="stat-value">0</span>
-            <span className="stat-hint">belum dipublikasi</span>
-          </div>
+        {/* ── Legend ── */}
+        <div className="ap-legend">
+          <span className="ap-legend-icon">💡</span>
+          <span>
+            <strong>Cara pakai:</strong> Drag kartu dari <em>Non-aktif</em> ke
+            slot posisi yang diinginkan di zona <em>Aktif</em> untuk
+            menampilkannya di landing page. Drag kartu aktif ke zona{" "}
+            <em>Non-aktif</em> untuk menyembunyikannya. Kartu aktif yang
+            tergantikan otomatis pindah ke Non-aktif.
+          </span>
         </div>
 
-        <div className="panel-card">
-          <div className="panel-card-header">
-            <span className="panel-card-title">Daftar Activity</span>
-            <input
-              className="panel-search"
-              placeholder="Cari..."
-              type="search"
-            />
+        {loading ? (
+          <div
+            style={{ padding: "3rem", textAlign: "center", color: "#9ca3af" }}
+          >
+            ⏳ Memuat data…
           </div>
-          <div className="panel-table-wrap">
-            {/* TODO: ganti dengan data dari API — contoh struktur tabel: */}
-            {/*
-            <table>
-              <thead>
-                <tr>
-                  <th>No</th>
-                  <th>Nama</th>
-                  <th>Status</th>
-                  <th>Aksi</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>1</td>
-                  <td>Contoh Item</td>
-                  <td><span className="badge badge-active">Aktif</span></td>
-                  <td style={{display:"flex", gap:"0.4rem"}}>
-                    <button className="action-btn">Edit</button>
-                    <button className="action-btn del">Hapus</button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-            */}
-            <div className="empty-state">
-              <div className="empty-icon">◉</div>
-              <p>Belum ada data Activity.</p>
-              <p>
-                Klik <strong>+ Tambah Activity</strong> untuk mulai.
+        ) : (
+          <>
+            {/* ═══════════════════════════════════════
+                ZONA AKTIF
+            ═══════════════════════════════════════ */}
+            <div>
+              <p className="ap-section-label">
+                Aktif
+                <span className="count-pill green">
+                  {activeRows.length} / 5
+                </span>
               </p>
+
+              <div className="ap-active-zone">
+                {/* Top row: 3 slots */}
+                <div className="ap-slots-top">
+                  {IMAGE_TYPE_OPTIONS.slice(0, 3).map((slot) => (
+                    <ActiveSlot
+                      key={slot}
+                      slot={slot}
+                      label={LABEL_MAP[slot]}
+                      card={slotMap[slot]}
+                      draggingId={draggingId}
+                      isDragTarget={dragOverSlot === slot}
+                      onDragStart={handleDragStart}
+                      onDragEnd={handleDragEnd}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setDragOverSlot(slot);
+                      }}
+                      onDragLeave={() => setDragOverSlot(null)}
+                      onDrop={(e) => handleDropOnSlot(e, slot)}
+                      onEdit={(card) => setModal({ mode: "edit", data: card })}
+                      onDelete={handleDelete}
+                    />
+                  ))}
+                </div>
+                {/* Bottom row: 2 slots */}
+                <div className="ap-slots-bottom">
+                  {IMAGE_TYPE_OPTIONS.slice(3).map((slot) => (
+                    <ActiveSlot
+                      key={slot}
+                      slot={slot}
+                      label={LABEL_MAP[slot]}
+                      card={slotMap[slot]}
+                      draggingId={draggingId}
+                      isDragTarget={dragOverSlot === slot}
+                      onDragStart={handleDragStart}
+                      onDragEnd={handleDragEnd}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setDragOverSlot(slot);
+                      }}
+                      onDragLeave={() => setDragOverSlot(null)}
+                      onDrop={(e) => handleDropOnSlot(e, slot)}
+                      onEdit={(card) => setModal({ mode: "edit", data: card })}
+                      onDelete={handleDelete}
+                      wide
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* ═══════════════════════════════════════
+                ZONA NON-AKTIF
+            ═══════════════════════════════════════ */}
+            <div>
+              <p className="ap-section-label">
+                Non-aktif
+                <span className="count-pill">{inactiveRows.length}</span>
+              </p>
+
+              <div
+                className={`ap-inactive-zone${dragOverInactive ? " drag-over" : ""}`}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOverInactive(true);
+                }}
+                onDragLeave={() => setDragOverInactive(false)}
+                onDrop={handleDropOnInactive}
+              >
+                {inactiveRows.length === 0 ? (
+                  <div className="ap-inactive-empty">
+                    Tidak ada kartu non-aktif.
+                    <br />
+                    Drag kartu aktif ke sini untuk menyembunyikannya.
+                  </div>
+                ) : (
+                  <div className="ap-inactive-grid">
+                    {inactiveRows.map((row) => (
+                      <InactiveCard
+                        key={row.id}
+                        row={row}
+                        draggingId={draggingId}
+                        onDragStart={handleDragStart}
+                        onDragEnd={handleDragEnd}
+                        onEdit={() => setModal({ mode: "edit", data: row })}
+                        onDelete={() => handleDelete(row)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* ── Modal ── */}
+      {modal && (
+        <ActivityModal
+          mode={modal.mode}
+          data={modal.data}
+          activeCount={activeRows.length}
+          onClose={() => setModal(null)}
+          onSuccess={() => {
+            setModal(null);
+            fetchData();
+            showToast(
+              modal.mode === "add"
+                ? "Activity ditambahkan"
+                : "Activity diperbarui",
+            );
+          }}
+          showToast={showToast}
+        />
+      )}
+
+      {/* ── Toast ── */}
+      {toast && <div className={`ap-toast ${toast.type}`}>{toast.msg}</div>}
+    </>
+  );
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ActiveSlot — satu slot di zona aktif
+// ─────────────────────────────────────────────────────────────────────────────
+function ActiveSlot({
+  slot,
+  label,
+  card,
+  draggingId,
+  isDragTarget,
+  onDragStart,
+  onDragEnd,
+  onDragOver,
+  onDragLeave,
+  onDrop,
+  onEdit,
+  onDelete,
+  wide,
+}) {
+  const isEmpty = !card;
+
+  return (
+    <div
+      className={`ap-slot${card ? " has-card" : ""}${isDragTarget ? " drag-target" : ""}`}
+      onDragOver={onDragOver}
+      onDragLeave={onDragLeave}
+      onDrop={onDrop}
+      style={wide ? { aspectRatio: "16/9" } : {}}
+    >
+      {isEmpty ? (
+        <>
+          <span className="ap-slot-empty-icon">⊕</span>
+          <span className="ap-slot-label">{label}</span>
+        </>
+      ) : (
+        <div
+          className={`ap-slot-card${draggingId === card.id ? " is-dragging" : ""}`}
+          draggable
+          onDragStart={(e) => onDragStart(e, card)}
+          onDragEnd={onDragEnd}
+        >
+          <img src={`http://localhost:8000${card.image_url}`} alt={label} />
+          {/* slot label badge */}
+          <span className="ap-slot-badge">{label}</span>
+          {/* hover overlay */}
+          <div className="ap-slot-card-overlay">
+            <span className="ap-slot-card-drag-hint">⠿ Drag untuk pindah</span>
+            <div className="ap-slot-card-actions">
+              <button className="ap-slot-card-btn" onClick={() => onEdit(card)}>
+                Edit
+              </button>
+              <button
+                className="ap-slot-card-btn del"
+                onClick={() => onDelete(card)}
+              >
+                Hapus
+              </button>
             </div>
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// InactiveCard — kartu di zona non-aktif
+// ─────────────────────────────────────────────────────────────────────────────
+function InactiveCard({
+  row,
+  draggingId,
+  onDragStart,
+  onDragEnd,
+  onEdit,
+  onDelete,
+}) {
+  return (
+    <div
+      className={`ap-inactive-card${draggingId === row.id ? " is-dragging" : ""}`}
+      draggable
+      onDragStart={(e) => onDragStart(e, row)}
+      onDragEnd={onDragEnd}
+    >
+      {row.image_url ? (
+        <img src={`http://localhost:8000${row.image_url}`} alt="" />
+      ) : (
+        <div
+          style={{
+            width: "100%",
+            height: "100%",
+            background: "#e2e8f0",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: "0.7rem",
+            color: "#94a3b8",
+          }}
+        >
+          No img
+        </div>
+      )}
+      <div className="ap-inactive-card-overlay">
+        <span className="ap-inactive-card-drag-hint">⠿ Drag ke slot aktif</span>
+        <div className="ap-inactive-card-actions">
+          <button className="ap-inactive-card-btn" onClick={onEdit}>
+            Edit
+          </button>
+          <button className="ap-inactive-card-btn del" onClick={onDelete}>
+            Hapus
+          </button>
+        </div>
       </div>
-    </>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ActivityModal
+// ─────────────────────────────────────────────────────────────────────────────
+const ActivityModal = ({
+  mode,
+  data,
+  activeCount,
+  onClose,
+  onSuccess,
+  showToast,
+}) => {
+  const isEdit = mode === "edit";
+  const [imageType, setImageType] = useState(data?.image_type || "");
+  const [description, setDescription] = useState(data?.description || "");
+  const [imageFile, setImageFile] = useState(null);
+  const [preview, setPreview] = useState(
+    data?.image_url ? `http://localhost:8000${data.image_url}` : null,
+  );
+  const [saving, setSaving] = useState(false);
+  const fileRef = useRef();
+
+  const handleFile = (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    setImageFile(f);
+    setPreview(URL.createObjectURL(f));
+  };
+
+  const handleSave = async () => {
+    if (!imageType) {
+      showToast("Pilih image type", "error");
+      return;
+    }
+    setSaving(true);
+    try {
+      if (isEdit) {
+        if (imageFile) {
+          const fd = new FormData();
+          fd.append("image", imageFile);
+          fd.append("image_type", imageType);
+          await fetch(`${API}/update-updates-section-image/${imageType}`, {
+            method: "PUT",
+            body: fd,
+          });
+        }
+        if (description !== (data?.description || "")) {
+          await fetch(`${API}/update-updates-section-description`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ description, image_type: imageType }),
+          });
+        }
+      } else {
+        if (!imageFile) {
+          showToast("Gambar harus diunggah", "error");
+          setSaving(false);
+          return;
+        }
+        const fd = new FormData();
+        fd.append("image", imageFile);
+        fd.append("image_type", imageType);
+        fd.append("description", description);
+        await fetch(`${API}/create-updates-section-image`, {
+          method: "POST",
+          body: fd,
+        });
+      }
+      onSuccess();
+    } catch {
+      showToast("Gagal menyimpan", "error");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div
+      className="ap-modal-bg"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className="ap-modal">
+        <div className="ap-modal-header">
+          <span className="ap-modal-title">
+            {isEdit ? "Edit Activity" : "Tambah Activity"}
+          </span>
+          <button className="ap-modal-close" onClick={onClose}>
+            ✕
+          </button>
+        </div>
+        <div className="ap-modal-body">
+          <div className="ap-field">
+            <label>
+              Image Type <span style={{ color: "#ef4444" }}>*</span>
+            </label>
+            <select
+              value={imageType}
+              onChange={(e) => setImageType(e.target.value)}
+              disabled={isEdit}
+            >
+              <option value="">— Pilih posisi —</option>
+              {IMAGE_TYPE_OPTIONS.map((opt) => (
+                <option key={opt} value={opt}>
+                  {LABEL_MAP[opt]}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="ap-field">
+            <label>
+              Gambar {!isEdit && <span style={{ color: "#ef4444" }}>*</span>}
+            </label>
+            <input
+              type="file"
+              accept="image/*"
+              ref={fileRef}
+              onChange={handleFile}
+            />
+            {preview && (
+              <img className="ap-img-preview" src={preview} alt="preview" />
+            )}
+          </div>
+
+          <div className="ap-field">
+            <label>Deskripsi Aktivitas</label>
+            <textarea
+              placeholder="Ceritakan tentang aktivitas ini…"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </div>
+
+          {!isEdit && activeCount >= 5 && (
+            <div
+              style={{
+                background: "#fef2f2",
+                border: "1px solid #fecaca",
+                borderRadius: "8px",
+                padding: "0.75rem 1rem",
+                fontSize: "0.82rem",
+                color: "#ef4444",
+              }}
+            >
+              ⚠️ Sudah ada 5 activity aktif. Activity baru akan disimpan sebagai{" "}
+              <strong>non-aktif</strong>.
+            </div>
+          )}
+        </div>
+        <div className="ap-modal-footer">
+          <button className="btn-cancel" onClick={onClose}>
+            Batal
+          </button>
+          <button className="btn-save" onClick={handleSave} disabled={saving}>
+            {saving ? "Menyimpan…" : "Simpan"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 };
 

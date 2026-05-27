@@ -49,12 +49,10 @@ const convertToWebp = async (filePath) => {
     path.basename(normalizedPath, path.extname(normalizedPath)) + ".webp";
   const webpPath = path.join("public/uploads", webpFilename);
 
-  // ✅ Read into buffer first so sharp releases the file handle before we delete
   const inputBuffer = fs.readFileSync(normalizedPath);
 
   await sharp(inputBuffer).webp({ quality: 80 }).toFile(webpPath);
 
-  // File handle is now fully released — safe to delete original
   try {
     fs.unlinkSync(normalizedPath);
   } catch (err) {
@@ -134,15 +132,6 @@ app.get("/api/creators-photocard-statistics", (req, res) => {
   });
 });
 
-app.get("/api/contact-form", (req, res) => {
-  db.query("SELECT * FROM contact_form", (err, result) => {
-    if (err)
-      return res.status(500).json({ error: "Gagal mengambil data contact form" });
-    res.status(200).json(result);
-  });
-});
-
-
 app.get("/api/contact", (req, res) => {
   db.query("SELECT * FROM contact", (err, result) => {
     if (err)
@@ -163,7 +152,6 @@ app.post("/api/create-creators", upload.single("image"), async (req, res) => {
   const urlTiktok = req.body.url_tiktok || "";
   const urlX = req.body.url_x || "";
 
-  // ✅ FIXED: convertToWebp returns the full URL path directly
   let image = null;
   if (req.file) {
     image = await convertToWebp(req.file.path);
@@ -209,7 +197,6 @@ app.post(
     if (!req.file)
       return res.status(400).json({ error: "Gambar harus diunggah" });
 
-    // ✅ FIXED: convertToWebp returns the full URL path directly
     const image = await convertToWebp(req.file.path);
 
     db.query(
@@ -230,28 +217,34 @@ app.post(
   },
 );
 
+// ✅ FIXED: description ikut diinsert sekaligus bersama image
 app.post(
   "/api/create-updates-section-image",
   upload.single("image"),
   async (req, res) => {
     const imageType = req.body.image_type;
+    const description = req.body.description || null; // ← ambil description dari FormData
 
     if (!imageType)
       return res.status(400).json({ error: "Tipe gambar harus diisi" });
     if (!req.file)
       return res.status(400).json({ error: "Gambar harus diunggah" });
 
-    // ✅ FIXED: convertToWebp returns the full URL path directly
     const image = await convertToWebp(req.file.path);
 
     db.query(
-      "INSERT INTO updates_section (image_type, image_url) VALUES (?, ?)",
-      [imageType, image],
+      "INSERT INTO updates_section (image_type, image_url, description) VALUES (?, ?, ?)",
+      [imageType, image, description], // ← description langsung diinsert
       (err, result) => {
-        if (err)
+        if (err) {
+          console.error("❌ Error insert updates_section:", err);
           return res
             .status(500)
-            .json({ error: "Gagal menambahkan updates section" });
+            .json({
+              error: "Gagal menambahkan updates section",
+              detail: err.message,
+            });
+        }
         res.status(201).json({
           message: "Updates section berhasil ditambahkan",
           imagetype: imageType,
@@ -287,7 +280,6 @@ app.post(
     const name = req.body.name;
     const testimonial = req.body.testimonial;
 
-    // ✅ FIXED: convertToWebp returns the full URL path directly
     let image = null;
     if (req.file) {
       image = await convertToWebp(req.file.path);
@@ -339,7 +331,8 @@ app.post(
   "/api/create-creators-photocard",
   upload.single("image"),
   async (req, res) => {
-    const image = null;
+    // ✅ FIXED: gunakan let bukan const agar bisa di-assign
+    let image = null;
     if (req.file) {
       image = await convertToWebp(req.file.path);
     }
@@ -376,26 +369,6 @@ app.post("/api/create-creators-photocard-statistics", (req, res) => {
           .json({ error: "Gagal menambahkan creators photocard statistics" });
       res.status(201).json({
         message: "Creators photocard statistics berhasil ditambahkan",
-        id: result.insertId,
-      });
-    },
-  );
-});
-
-app.post("/api/create-contact-form", (req, res) => {
-  const first_name = req.body.first_name;
-  const last_name = req.body.last_name;
-  const email = req.body.email;
-  const message = req.body.message;
-
-  db.query(
-    "INSERT INTO contact_form (first_name, last_name, email, message) VALUES (?, ?, ?, ?)",
-    [first_name, last_name, email, message],
-    (err, result) => {
-      if (err)
-        return res.status(500).json({ error: "Gagal menambahkan kontak form" });
-      res.status(201).json({
-        message: "Kontak form berhasil ditambahkan",
         id: result.insertId,
       });
     },
@@ -454,7 +427,6 @@ app.put(
       values.push(roles);
     }
 
-    // ✅ FIXED: convertToWebp returns the full URL path directly
     if (req.file) {
       const profileImage = await convertToWebp(req.file.path);
       fields.push("profile_image = ?");
@@ -511,7 +483,6 @@ app.put(
     if (!req.file)
       return res.status(400).json({ error: "Gambar harus diunggah" });
 
-    // ✅ FIXED: convertToWebp returns the full URL path directly
     const image = await convertToWebp(req.file.path);
 
     db.query(
@@ -537,7 +508,6 @@ app.put(
     if (!req.file)
       return res.status(400).json({ error: "Gambar harus diunggah" });
 
-    // ✅ FIXED: convertToWebp returns the full URL path directly
     const image = await convertToWebp(req.file.path);
 
     db.query(
@@ -556,14 +526,17 @@ app.put(
   },
 );
 
+// ✅ FIXED: tambah WHERE image_type agar tidak update semua baris
 app.put("/api/update-updates-section-description", (req, res) => {
-  const { description } = req.body;
+  const { description, image_type } = req.body;
   if (!description)
     return res.status(400).json({ error: "Deskripsi harus diisi" });
+  if (!image_type)
+    return res.status(400).json({ error: "Image type harus diisi" });
 
   db.query(
-    "UPDATE updates_section SET description = ?",
-    [description],
+    "UPDATE updates_section SET description = ? WHERE image_type = ?",
+    [description, image_type],
     (err) => {
       if (err)
         return res
@@ -572,6 +545,28 @@ app.put("/api/update-updates-section-description", (req, res) => {
       res
         .status(200)
         .json({ message: "Deskripsi updates section berhasil diperbarui" });
+    },
+  );
+});
+
+// ✅ FIXED: endpoint status toggle yang hilang — ditambahkan kembali
+app.put("/api/update-updates-section-status/:id", (req, res) => {
+  const id = req.params.id;
+  const { is_active } = req.body;
+
+  db.query(
+    "UPDATE updates_section SET is_active = ? WHERE id = ?",
+    [is_active, id],
+    (err) => {
+      if (err) {
+        console.error("❌ Error update status:", err);
+        return res
+          .status(500)
+          .json({ error: "Gagal memperbarui status updates section" });
+      }
+      res
+        .status(200)
+        .json({ message: "Status updates section berhasil diperbarui" });
     },
   );
 });
@@ -596,7 +591,6 @@ app.put(
       values.push(testimonial);
     }
 
-    // ✅ FIXED: convertToWebp returns the full URL path directly
     if (req.file) {
       const profileImage = await convertToWebp(req.file.path);
       fields.push("profile_image = ?");
@@ -627,7 +621,8 @@ app.put(
   upload.single("image"),
   async (req, res) => {
     const id = req.params.id;
-    const image = null;
+    // ✅ FIXED: gunakan let bukan const
+    let image = null;
     if (req.file) {
       image = await convertToWebp(req.file.path);
     }
@@ -659,12 +654,9 @@ app.put("/api/update-creators-photocard-statistics", (req, res) => {
       [creators],
       (err) => {
         if (err)
-          return res
-            .status(500)
-            .json({
-              error:
-                "Gagal memperbarui creators photocard statistics (creators)",
-            });
+          return res.status(500).json({
+            error: "Gagal memperbarui creators photocard statistics (creators)",
+          });
       },
     );
   }
@@ -674,11 +666,9 @@ app.put("/api/update-creators-photocard-statistics", (req, res) => {
       [brand],
       (err) => {
         if (err)
-          return res
-            .status(500)
-            .json({
-              error: "Gagal memperbarui creators photocard statistics (brand)",
-            });
+          return res.status(500).json({
+            error: "Gagal memperbarui creators photocard statistics (brand)",
+          });
       },
     );
   }
@@ -688,12 +678,9 @@ app.put("/api/update-creators-photocard-statistics", (req, res) => {
       [projects],
       (err) => {
         if (err)
-          return res
-            .status(500)
-            .json({
-              error:
-                "Gagal memperbarui creators photocard statistics (projects)",
-            });
+          return res.status(500).json({
+            error: "Gagal memperbarui creators photocard statistics (projects)",
+          });
       },
     );
   }
@@ -708,7 +695,6 @@ app.put("/api/update-contact", upload.single("logo"), async (req, res) => {
   const fields = [];
   const values = [];
 
-  // ✅ FIXED: convertToWebp returns the full URL path directly
   if (req.file) {
     const logo = await convertToWebp(req.file.path);
     fields.push("logo = ?");

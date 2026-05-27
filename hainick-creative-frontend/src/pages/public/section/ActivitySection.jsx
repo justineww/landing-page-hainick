@@ -1,84 +1,108 @@
 // ActivitySection.jsx
-// Gambar dan teks deskripsi bisa diedit dari admin panel
-// Props: activities (array), description (string) — dikirim dari admin/backend
+// Data di-fetch dari /api/updates-section, difilter is_active == 1, max 5 item
+// Klik gambar → tampil deskripsi overlay
 
-// ── Ganti URL ini dengan link tujuan tombol Join ──────────────────────────────
-const JOIN_LINK = "https://wa.me/6281234567890"; // TODO: ganti dengan link yang sesuai
+import { useState, useEffect } from "react";
+
+const API = "http://localhost:8000/api";
 
 // ── Avatar placeholder untuk Community section ───────────────────────────────
 const AVATARS = [
-  {
-    id: 1,
-    src: "https://placehold.co/80x80/f5c49a/fff?text=A",
-    style: { top: "28%", left: "17%" },
-  },
-  {
-    id: 2,
-    src: "https://placehold.co/80x80/9b7fcc/fff?text=B",
-    style: { top: "48%", left: "9%" },
-  },
-  {
-    id: 3,
-    src: "https://placehold.co/80x80/f4a7c0/fff?text=C",
-    style: { top: "68%", left: "21%" },
-  },
-  {
-    id: 4,
-    src: "https://placehold.co/80x80/b5d4f5/fff?text=D",
-    style: { top: "28%", right: "17%" },
-  },
-  {
-    id: 5,
-    src: "https://placehold.co/80x80/d4d4d4/fff?text=E",
-    style: { top: "48%", right: "9%" },
-  },
-  {
-    id: 6,
-    src: "https://placehold.co/80x80/f5e07a/fff?text=F",
-    style: { top: "68%", right: "21%" },
-  },
+  { id: 1, src: "https://placehold.co/80x80/f5c49a/fff?text=A" },
+  { id: 2, src: "https://placehold.co/80x80/9b7fcc/fff?text=B" },
+  { id: 3, src: "https://placehold.co/80x80/f4a7c0/fff?text=C" },
+  { id: 4, src: "https://placehold.co/80x80/b5d4f5/fff?text=D" },
+  { id: 5, src: "https://placehold.co/80x80/d4d4d4/fff?text=E" },
+  { id: 6, src: "https://placehold.co/80x80/f5e07a/fff?text=F" },
 ];
 
-// ── Default Data (TODO: ganti dengan fetch API dari backend) ──────────────────
-
-const DEFAULT_ACTIVITIES = [
-  {
-    id: 1,
-    image: "https://placehold.co/600x400/111/fff?text=Balikpapan",
-    city: "Balikpapan",
-  },
-  {
-    id: 2,
-    image: "https://placehold.co/600x400/111/fff?text=Bali",
-    city: "Bali",
-  },
-  {
-    id: 3,
-    image: "https://placehold.co/600x400/111/fff?text=Jogjakarta",
-    city: "Jogjakarta",
-  },
-  {
-    id: 4,
-    image: "https://placehold.co/900x500/111/fff?text=Surabaya",
-    city: "Surabaya",
-  },
-  {
-    id: 5,
-    image: "https://placehold.co/900x500/111/fff?text=Medan",
-    city: "Medan",
-  },
+// ── Urutan posisi enum ke slot grid ──────────────────────────────────────────
+const SLOT_ORDER = [
+  "image_left",
+  "image_center",
+  "image_right",
+  "image_bottom_left",
+  "image_bottom_right",
 ];
 
-const DEFAULT_DESCRIPTION =
-  "The Hainick team has traveled across Indonesia to Bali, Jogjakarta, Surabaya, Medan, and Balikpapan, connecting with talented creators in each city. These journeys have allowed us to discover unique local talents and showcase the incredible creative potential throughout our diverse archipelago. We're excited to demonstrate to our partners and clients that compelling campaigns can emerge from every corner of Indonesia. Thank you to all the amazing communities who welcomed us!";
+const JOIN_LINK = "https://wa.me/6281234567890"; // TODO: ganti dengan link yang sesuai
+
+// ── Merge rows: gabungkan baris dengan image_type yang sama ──────────────────
+// Mengatasi bug di mana gambar dan deskripsi tersimpan sebagai baris terpisah
+function mergeRows(rawData) {
+  const map = {};
+
+  rawData.forEach((item) => {
+    const key = item.image_type;
+
+    // Lewati baris yang image_type-nya tidak ada di SLOT_ORDER
+    if (!key || !SLOT_ORDER.includes(key)) return;
+
+    if (!map[key]) {
+      map[key] = { ...item };
+    } else {
+      // Merge: ambil nilai yang tidak null/kosong dari baris manapun
+      if (!map[key].image_url && item.image_url) {
+        map[key].image_url = item.image_url;
+      }
+      if (!map[key].description && item.description) {
+        map[key].description = item.description;
+      }
+      // Gunakan is_active = 1 jika salah satu baris aktif
+      if (item.is_active == 1) {
+        map[key].is_active = 1;
+      }
+    }
+  });
+
+  return Object.values(map);
+}
 
 // ── ActivitySection ───────────────────────────────────────────────────────────
 
-export default function ActivitySection({
-  activities = DEFAULT_ACTIVITIES,
-  description = DEFAULT_DESCRIPTION,
-  title = "Hainick Update",
-}) {
+export default function ActivitySection({ title = "Hainick Update" }) {
+  const [activities, setActivities] = useState([]);
+  const [selectedActivity, setSelectedActivity] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const res = await fetch(`${API}/updates-section`);
+        const data = await res.json();
+
+        const raw = Array.isArray(data) ? data : [];
+
+        // ── PERBAIKAN BUG: merge baris yang terpisah ──
+        const merged = mergeRows(raw);
+
+        // Ambil yang aktif saja, max 5
+        const activeItems = merged
+          .filter((item) => item.is_active == 1)
+          .slice(0, 5);
+
+        // Sort berdasarkan urutan SLOT_ORDER
+        activeItems.sort((a, b) => {
+          const ai = SLOT_ORDER.indexOf(a.image_type);
+          const bi = SLOT_ORDER.indexOf(b.image_type);
+          return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+        });
+
+        setActivities(activeItems);
+      } catch (e) {
+        console.error("Gagal mengambil data activity:", e);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // Kumpulkan semua deskripsi dari item aktif untuk ditampilkan di bawah grid
+  const topItems = activities.slice(0, 3);
+  const bottomItems = activities.slice(3);
+
   return (
     <>
       <style>{`
@@ -127,12 +151,14 @@ export default function ActivitySection({
           gap: 10px;
         }
 
+        /* ── Activity Card (clickable) ── */
         .act-card {
           position: relative;
           border-radius: 8px;
           overflow: hidden;
           background: #111;
           aspect-ratio: 4/3;
+          cursor: pointer;
         }
 
         .act-row-bottom .act-card {
@@ -151,16 +177,155 @@ export default function ActivitySection({
           transform: scale(1.04);
         }
 
-        .act-description {
-          padding: 20px 0 0;
+        /* ── Hover overlay hint ── */
+        .act-card-overlay {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(to top, rgba(10,10,10,0.72) 0%, transparent 55%);
+          opacity: 0;
+          transition: opacity 0.3s ease;
+          display: flex;
+          align-items: flex-end;
+          padding: 14px;
+          pointer-events: none;
         }
 
-        .act-description p {
+        .act-card:hover .act-card-overlay {
+          opacity: 1;
+        }
+
+        .act-card-hint {
+          font-family: 'Plus Jakarta Sans', sans-serif;
+          color: rgba(255,255,255,0.9);
+          font-size: 0.78rem;
+          font-weight: 600;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .act-card-hint::before {
+          content: '';
+          display: block;
+          width: 18px;
+          height: 18px;
+          border-radius: 50%;
+          border: 2px solid rgba(255,255,255,0.8);
+          background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='white'%3E%3Cpath d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z'/%3E%3C/svg%3E") center/14px no-repeat;
+          flex-shrink: 0;
+        }
+
+        /* ── Loading skeleton ── */
+        .act-skeleton {
+          border-radius: 8px;
+          background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+          background-size: 200% 100%;
+          animation: act-shimmer 1.5s infinite;
+          aspect-ratio: 4/3;
+        }
+        .act-row-bottom .act-skeleton { aspect-ratio: 16/9; }
+        @keyframes act-shimmer {
+          0%   { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+
+        /* ── Caption teks di bawah grid ── */
+        .act-caption {
+          margin-top: 20px;
           font-size: 0.875rem;
+          line-height: 1.75;
+          color: #555;
+          font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        /* ── Activity Detail Modal ── */
+        .act-modal-bg {
+          position: fixed;
+          inset: 0;
+          z-index: 2000;
+          background: rgba(10, 10, 10, 0.65);
+          backdrop-filter: blur(6px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 1.5rem;
+          animation: act-fadein 0.2s ease;
+        }
+        @keyframes act-fadein {
+          from { opacity: 0; }
+          to   { opacity: 1; }
+        }
+
+        .act-modal {
+          background: #fff;
+          border-radius: 20px;
+          width: 100%;
+          max-width: 560px;
+          overflow: hidden;
+          box-shadow: 0 32px 80px rgba(0,0,0,0.28);
+          animation: act-modal-up 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        @keyframes act-modal-up {
+          from { opacity: 0; transform: translateY(24px) scale(0.97); }
+          to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .act-modal-img-wrap {
+          position: relative;
+          width: 100%;
+          aspect-ratio: 16/9;
+          background: #0a0a0a;
+          overflow: hidden;
+        }
+
+        .act-modal-img-wrap img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+        }
+
+        .act-modal-close {
+          position: absolute;
+          top: 14px;
+          right: 14px;
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          background: rgba(255,255,255,0.92);
+          border: none;
+          cursor: pointer;
+          font-size: 1.1rem;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: #0a0a0a;
+          transition: background 0.15s, transform 0.15s;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+          line-height: 1;
+        }
+        .act-modal-close:hover {
+          background: #fff;
+          transform: scale(1.08);
+        }
+
+        .act-modal-body {
+          padding: 1.5rem 1.6rem 1.8rem;
+        }
+
+        /* ── act-modal-tag DIHAPUS — tidak ditampilkan lagi ── */
+
+        .act-modal-desc {
+          font-size: 0.925rem;
           line-height: 1.8;
           color: #444;
           margin: 0;
-          font-weight: 400;
+        }
+
+        .act-modal-empty {
+          color: #9ca3af;
+          font-style: italic;
+          font-size: 0.875rem;
         }
 
         /* ───── COMMUNITY SECTION ───── */
@@ -198,7 +363,6 @@ export default function ActivitySection({
           z-index: 1;
         }
 
-        /* Center avatar area */
         .community-center-wrap {
           position: relative;
           display: flex;
@@ -218,7 +382,6 @@ export default function ActivitySection({
           z-index: 2;
         }
 
-        /* Floating small avatars — positioned relative to center-wrap */
         .community-avatar {
           position: absolute;
           width: 72px;
@@ -237,7 +400,6 @@ export default function ActivitySection({
         .av-5 { top: 40%; right: 6%;  }
         .av-6 { bottom: 4%; right: 22%; }
 
-        /* Join button */
         .community-join-btn {
           display: inline-block;
           padding: 14px 56px;
@@ -255,7 +417,6 @@ export default function ActivitySection({
           position: relative;
           z-index: 1;
           margin-top: 8px;
-          display: inline-block;
         }
 
         .community-join-btn:hover {
@@ -265,61 +426,21 @@ export default function ActivitySection({
 
         /* ── Responsive: tablet ── */
         @media (max-width: 768px) {
-          .act-row-top {
-            grid-template-columns: repeat(2, 1fr);
-          }
-
-          .act-row-top .act-card:last-child {
-            grid-column: 1 / -1;
-            aspect-ratio: 16/9;
-          }
-
-          .act-root {
-            padding-top: 40px;
-          }
-
-          .community-root {
-            padding: 48px 24px 56px;
-            margin-top: 40px;
-            margin-bottom: 56px;
-          }
-
-          .community-avatar {
-            width: 56px;
-            height: 56px;
-          }
+          .act-row-top { grid-template-columns: repeat(2, 1fr); }
+          .act-row-top .act-card:last-child { grid-column: 1 / -1; aspect-ratio: 16/9; }
+          .act-root { padding-top: 40px; }
+          .community-root { padding: 48px 24px 56px; margin-top: 40px; margin-bottom: 56px; }
+          .community-avatar { width: 56px; height: 56px; }
         }
 
         /* ── Responsive: mobile ── */
         @media (max-width: 480px) {
-          .act-row-top,
-          .act-row-bottom {
-            grid-template-columns: 1fr;
-          }
-
-          .act-row-top .act-card:last-child {
-            grid-column: auto;
-            aspect-ratio: 4/3;
-          }
-
-          .act-card,
-          .act-row-bottom .act-card {
-            aspect-ratio: 4/3;
-          }
-
-          .act-grid-wrapper {
-            gap: 8px;
-          }
-
-          .community-root {
-            padding: 40px 24px 48px;
-          }
-
-          .community-avatar {
-            width: 48px;
-            height: 48px;
-          }
-
+          .act-row-top, .act-row-bottom { grid-template-columns: 1fr; }
+          .act-row-top .act-card:last-child { grid-column: auto; aspect-ratio: 4/3; }
+          .act-card, .act-row-bottom .act-card { aspect-ratio: 4/3; }
+          .act-grid-wrapper { gap: 8px; }
+          .community-root { padding: 40px 24px 48px; }
+          .community-avatar { width: 48px; height: 48px; }
           .av-1 { top: 5%;  left: 4%; }
           .av-2 { top: 38%; left: 2%; }
           .av-3 { bottom: 5%; left: 4%; }
@@ -329,35 +450,64 @@ export default function ActivitySection({
         }
       `}</style>
 
-      {/* ── Wrapper ── */}
       <div className="act-outer">
         {/* ── Update Section ── */}
         <section className="act-root">
           <h2 className="act-heading">{title}</h2>
 
-          <div className="act-grid-wrapper">
-            <div className="act-row-top">
-              {activities.slice(0, 3).map((item) => (
-                <div className="act-card" key={item.id}>
-                  <img src={item.image} alt={item.city} />
-                </div>
-              ))}
-            </div>
-
-            {activities.length > 3 && (
-              <div className="act-row-bottom">
-                {activities.slice(3).map((item) => (
-                  <div className="act-card" key={item.id}>
-                    <img src={item.image} alt={item.city} />
-                  </div>
+          {loading ? (
+            <div className="act-grid-wrapper">
+              <div className="act-row-top">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="act-skeleton" />
                 ))}
               </div>
-            )}
-          </div>
+              <div className="act-row-bottom">
+                {[0, 1].map((i) => (
+                  <div key={i} className="act-skeleton" />
+                ))}
+              </div>
+            </div>
+          ) : activities.length > 0 ? (
+            <>
+              <div className="act-grid-wrapper">
+                {topItems.length > 0 && (
+                  <div className="act-row-top">
+                    {topItems.map((item) => (
+                      <ActivityCard
+                        key={item.image_type}
+                        item={item}
+                        onClick={() => setSelectedActivity(item)}
+                      />
+                    ))}
+                  </div>
+                )}
+                {bottomItems.length > 0 && (
+                  <div className="act-row-bottom">
+                    {bottomItems.map((item) => (
+                      <ActivityCard
+                        key={item.image_type}
+                        item={item}
+                        onClick={() => setSelectedActivity(item)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
 
-          <div className="act-description">
-            <p>{description}</p>
-          </div>
+              {/* ── Caption teks di bawah grid ── */}
+              <p className="act-caption">
+                The Hainick team has traveled across Indonesia to Bali,
+                Jogjakarta, Surabaya, Medan, and Balikpapan, connecting with
+                talented creators in each city. These journeys have allowed us
+                to discover unique local talents and showcase the incredible
+                creative potential throughout our diverse archipelago. We're
+                excited to demonstrate to our partners and clients that
+                compelling campaigns can emerge from every corner of Indonesia.
+                Thank you to all the amazing communities who welcomed us!
+              </p>
+            </>
+          ) : null}
         </section>
 
         {/* ── Community / Join Section ── */}
@@ -370,7 +520,6 @@ export default function ActivitySection({
             Get the opportunity to collaborate with brands and events.
           </p>
 
-          {/* Center wrap with floating avatars */}
           <div className="community-center-wrap">
             <img
               className="community-avatar av-1"
@@ -419,7 +568,65 @@ export default function ActivitySection({
           </a>
         </div>
       </div>
-      {/* end act-outer */}
+
+      {/* ── Activity Detail Modal ── */}
+      {selectedActivity && (
+        <div
+          className="act-modal-bg"
+          onClick={(e) =>
+            e.target === e.currentTarget && setSelectedActivity(null)
+          }
+        >
+          <div className="act-modal">
+            <div className="act-modal-img-wrap">
+              <img
+                src={`http://localhost:8000${selectedActivity.image_url}`}
+                alt={selectedActivity.image_type}
+              />
+              <button
+                className="act-modal-close"
+                onClick={() => setSelectedActivity(null)}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="act-modal-body">
+              {/* ── Enum tag (image_left, dst) DIHAPUS ── */}
+              <p className="act-modal-desc">
+                {selectedActivity.description ? (
+                  selectedActivity.description
+                ) : (
+                  <span className="act-modal-empty">
+                    Deskripsi belum tersedia.
+                  </span>
+                )}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </>
+  );
+}
+
+// ── Activity Card sub-component ───────────────────────────────────────────────
+function ActivityCard({ item, onClick }) {
+  return (
+    <div
+      className="act-card"
+      onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onClick()}
+    >
+      <img
+        src={`http://localhost:8000${item.image_url}`}
+        alt={item.image_type}
+        loading="lazy"
+      />
+      <div className="act-card-overlay">
+        <span className="act-card-hint">Lihat detail</span>
+      </div>
+    </div>
   );
 }
