@@ -134,6 +134,15 @@ app.get("/api/creators-photocard-statistics", (req, res) => {
   });
 });
 
+app.get("/api/contact-form", (req, res) => {
+  db.query("SELECT * FROM contact_form", (err, result) => {
+    if (err)
+      return res.status(500).json({ error: "Gagal mengambil data contact form" });
+    res.status(200).json(result);
+  });
+});
+
+
 app.get("/api/contact", (req, res) => {
   db.query("SELECT * FROM contact", (err, result) => {
     if (err)
@@ -367,6 +376,26 @@ app.post("/api/create-creators-photocard-statistics", (req, res) => {
           .json({ error: "Gagal menambahkan creators photocard statistics" });
       res.status(201).json({
         message: "Creators photocard statistics berhasil ditambahkan",
+        id: result.insertId,
+      });
+    },
+  );
+});
+
+app.post("/api/create-contact-form", (req, res) => {
+  const first_name = req.body.first_name;
+  const last_name = req.body.last_name;
+  const email = req.body.email;
+  const message = req.body.message;
+
+  db.query(
+    "INSERT INTO contact_form (first_name, last_name, email, message) VALUES (?, ?, ?, ?)",
+    [first_name, last_name, email, message],
+    (err, result) => {
+      if (err)
+        return res.status(500).json({ error: "Gagal menambahkan kontak form" });
+      res.status(201).json({
+        message: "Kontak form berhasil ditambahkan",
         id: result.insertId,
       });
     },
