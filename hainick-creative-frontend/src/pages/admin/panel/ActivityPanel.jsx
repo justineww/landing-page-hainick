@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
 const API = "http://localhost:8000/api";
 
@@ -22,8 +22,6 @@ const LABEL_MAP = {
 // ActivityPanel
 // ─────────────────────────────────────────────────────────────────────────────
 const ActivityPanel = () => {
-  // savedRows  = last confirmed state from server
-  // pendingRows = working copy (modified by drag, not yet saved)
   const [savedRows, setSavedRows] = useState([]);
   const [pendingRows, setPendingRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -31,29 +29,21 @@ const ActivityPanel = () => {
   const [modal, setModal] = useState(null);
   const [toast, setToast] = useState(null);
 
-  // drag state
   const [draggingId, setDraggingId] = useState(null);
   const [dragOverSlot, setDragOverSlot] = useState(null);
   const [dragOverInactive, setDragOverInactive] = useState(false);
 
-  // ── Derived: is there unsaved changes?
-  const isDirty =
-    JSON.stringify(
-      pendingRows.map((r) => ({
-        id: r.id,
-        is_active: r.is_active,
-        image_type: r.image_type,
-      })),
-    ) !==
-    JSON.stringify(
-      savedRows.map((r) => ({
-        id: r.id,
-        is_active: r.is_active,
-        image_type: r.image_type,
-      })),
+  // ── Derived: apakah ada perubahan belum disimpan?
+  const isDirty = pendingRows.some((pr) => {
+    const sr = savedRows.find((s) => s.id === pr.id);
+    if (!sr) return true;
+    return (
+      Number(sr.is_active) !== Number(pr.is_active) ||
+      (sr.image_type ?? null) !== (pr.image_type ?? null)
     );
+  });
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch(`${API}/updates-section`);
@@ -66,23 +56,23 @@ const ActivityPanel = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   const showToast = (msg, type = "success") => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3500);
   };
 
-  // ── Derived rows from pendingRows
-  const activeRows = pendingRows.filter((r) => r.is_active == 1);
-  const inactiveRows = pendingRows.filter((r) => r.is_active != 1);
+  const activeRows = pendingRows.filter((r) => Number(r.is_active) === 1);
+  const inactiveRows = pendingRows.filter((r) => Number(r.is_active) !== 1);
 
   const slotMap = {};
   IMAGE_TYPE_OPTIONS.forEach((slot) => {
+    // Hanya card yang is_active=1 yang bisa menempati slot
     slotMap[slot] = activeRows.find((r) => r.image_type === slot) || null;
   });
 
@@ -98,7 +88,7 @@ const ActivityPanel = () => {
     setDragOverInactive(false);
   };
 
-  // ── Drop onto an active SLOT (only updates local state, NO API call) ──
+  // ── Drop ke slot aktif ──
   const handleDropOnSlot = (e, slot) => {
     e.preventDefault();
     setDragOverSlot(null);
@@ -107,11 +97,15 @@ const ActivityPanel = () => {
     const draggedRow = pendingRows.find((r) => r.id === draggingId);
     if (!draggedRow) return;
 
-    // Already in this exact slot → no-op
-    if (draggedRow.is_active == 1 && draggedRow.image_type === slot) return;
+    // Sudah di slot ini → no-op
+    if (Number(draggedRow.is_active) === 1 && draggedRow.image_type === slot)
+      return;
 
     const occupant = slotMap[slot];
     const willDisplace = occupant && occupant.id !== draggedRow.id;
+
+    const draggedOldImageType = draggedRow.image_type ?? null;
+    const draggedWasActive = Number(draggedRow.is_active) === 1;
 
     setPendingRows((prev) =>
       prev.map((r) => {
@@ -119,89 +113,113 @@ const ActivityPanel = () => {
           return { ...r, is_active: 1, image_type: slot };
         }
         if (willDisplace && r.id === occupant.id) {
-          return { ...r, is_active: 0 };
+          if (draggedWasActive && draggedOldImageType) {
+            return { ...r, is_active: 1, image_type: draggedOldImageType };
+          }
+          return { ...r, is_active: 0, image_type: null };
         }
         return r;
       }),
     );
   };
 
-  // ── Drop onto inactive zone (only updates local state, NO API call) ──
+  // ── Drop ke zona non-aktif ──
   const handleDropOnInactive = (e) => {
     e.preventDefault();
     setDragOverInactive(false);
     if (!draggingId) return;
     const row = pendingRows.find((r) => r.id === draggingId);
-    if (!row || row.is_active != 1) return;
+    if (!row || Number(row.is_active) !== 1) return;
 
     setPendingRows((prev) =>
-      prev.map((r) => (r.id === row.id ? { ...r, is_active: 0 } : r)),
+      prev.map((r) =>
+        r.id === row.id ? { ...r, is_active: 0, image_type: null } : r,
+      ),
     );
   };
 
-  // ── BATAL: reset pending ke saved ──
+  // ── Batal: reset ke saved ──
   const handleCancel = () => {
     setPendingRows(savedRows);
   };
 
-  // ── SIMPAN: kirim semua perubahan ke API ──
+  // ── Simpan: kirim semua perubahan ke API ──
+  // FIX: ambil snapshot pendingRows saat ini via functional update / parameter
   const handleSaveChanges = async () => {
     setSaving(true);
+
+    // Ambil snapshot terkini dari state (hindari stale closure)
+    // Gunakan ref trick: simpan pendingRows ke variabel lokal sebelum async
+    const currentPending = [...pendingRows];
+    const currentSaved = [...savedRows];
+
     try {
-      // Find rows whose is_active or image_type changed
-      const changed = pendingRows.filter((pr) => {
-        const sr = savedRows.find((s) => s.id === pr.id);
+      const changed = currentPending.filter((pr) => {
+        const sr = currentSaved.find((s) => s.id === pr.id);
         if (!sr) return false;
-        return sr.is_active != pr.is_active || sr.image_type !== pr.image_type;
+        return (
+          Number(sr.is_active) !== Number(pr.is_active) ||
+          (sr.image_type ?? null) !== (pr.image_type ?? null)
+        );
       });
 
-      // Run all API updates in parallel
-      await Promise.all(
-        changed.map(async (pr) => {
-          const sr = savedRows.find((s) => s.id === pr.id);
+      if (changed.length === 0) {
+        showToast("Tidak ada perubahan");
+        setSaving(false);
+        return;
+      }
 
-          // Update image_type if changed
-          if (sr.image_type !== pr.image_type && pr.image_type) {
-            await fetch(`${API}/update-updates-section-image-type/${pr.id}`, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ image_type: pr.image_type }),
-            });
-          }
+      for (const pr of changed) {
+        const res = await fetch(
+          `${API}/update-updates-section-status/${pr.id}`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              // FIX: kirim sebagai number (0/1), bukan string
+              is_active: Number(pr.is_active),
+              image_type: pr.image_type ?? null,
+            }),
+          },
+        );
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.error || `Gagal update ID ${pr.id}`);
+        }
+      }
 
-          // Update is_active if changed
-          if (sr.is_active != pr.is_active) {
-            await fetch(`${API}/update-updates-section-status/${pr.id}`, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ is_active: pr.is_active }),
-            });
-          }
-        }),
-      );
-
-      // Commit: saved = pending
-      setSavedRows(pendingRows);
-      showToast("✓ Perubahan berhasil disimpan");
-    } catch {
-      showToast("Gagal menyimpan perubahan", "error");
+      // FIX: update savedRows dengan snapshot yang sama yang kita kirim ke API
+      setSavedRows(currentPending);
+      showToast(`✓ ${changed.length} perubahan berhasil disimpan`);
+    } catch (err) {
+      console.error(err);
+      showToast(err?.message || "Gagal menyimpan perubahan", "error");
     } finally {
       setSaving(false);
     }
   };
 
+  // FIX: handleDelete — pastikan menggunakan row.id yang benar
   const handleDelete = async (row) => {
     if (!window.confirm(`Hapus activity ini (ID: ${row.id})?`)) return;
     try {
-      await fetch(`${API}/delete-updates-section/${row.id}`, {
+      const res = await fetch(`${API}/delete-updates-section/${row.id}`, {
         method: "DELETE",
       });
-      const next = pendingRows.filter((r) => r.id !== row.id);
+
+      // FIX: cek response status, bukan abaikan error
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Gagal menghapus");
+      }
+
+      // FIX: filter berdasarkan id (number equality safe)
       setSavedRows((prev) => prev.filter((r) => r.id !== row.id));
-      setPendingRows(next);
+      setPendingRows((prev) => prev.filter((r) => r.id !== row.id));
       showToast("Activity dihapus");
-    } catch {
-      showToast("Gagal menghapus", "error");
+    } catch (err) {
+      console.error(err);
+      showToast(err?.message || "Gagal menghapus", "error");
     }
   };
 
@@ -219,7 +237,6 @@ const ActivityPanel = () => {
           gap: 1.75rem;
         }
 
-        /* ── Header ── */
         .ap-header {
           display: flex;
           align-items: center;
@@ -252,7 +269,6 @@ const ActivityPanel = () => {
         }
         .ap-add-btn:hover { background: #263660; transform: translateY(-1px); }
 
-        /* ── Section titles ── */
         .ap-section-label {
           font-size: 0.72rem;
           font-weight: 700;
@@ -277,7 +293,6 @@ const ActivityPanel = () => {
           color: #15803d;
         }
 
-        /* ── Save/Cancel bar ── */
         .ap-save-bar {
           display: flex;
           align-items: center;
@@ -335,7 +350,6 @@ const ActivityPanel = () => {
         .btn-bar-save:hover:not(:disabled) { background: #263660; }
         .btn-bar-save:disabled { opacity: 0.55; cursor: not-allowed; }
 
-        /* ── Active zone: 5-slot grid ── */
         .ap-active-zone {
           background: #f8fafc;
           border: 1.5px dashed #cbd5e1;
@@ -343,7 +357,6 @@ const ActivityPanel = () => {
           padding: 1.1rem;
           transition: border-color 0.2s, background 0.2s;
         }
-
         .ap-slots-top {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
@@ -356,7 +369,6 @@ const ActivityPanel = () => {
           gap: 10px;
         }
 
-        /* ── Single slot ── */
         .ap-slot {
           position: relative;
           border-radius: 10px;
@@ -372,7 +384,6 @@ const ActivityPanel = () => {
           overflow: hidden;
         }
         .ap-slots-bottom .ap-slot { aspect-ratio: 16/9; }
-
         .ap-slot.has-card { border-style: solid; border-color: transparent; }
         .ap-slot.drag-target {
           border-color: #1a2744;
@@ -395,7 +406,6 @@ const ActivityPanel = () => {
           pointer-events: none;
         }
 
-        /* ── Card inside slot ── */
         .ap-slot-card {
           position: absolute;
           inset: 0;
@@ -449,8 +459,6 @@ const ActivityPanel = () => {
           align-items: center;
           gap: 4px;
         }
-
-        /* slot label badge on top of card */
         .ap-slot-badge {
           position: absolute;
           top: 8px;
@@ -465,8 +473,6 @@ const ActivityPanel = () => {
           pointer-events: none;
           z-index: 2;
         }
-
-        /* pending indicator badge */
         .ap-slot-pending-dot {
           position: absolute;
           top: 8px;
@@ -479,11 +485,8 @@ const ActivityPanel = () => {
           z-index: 3;
           pointer-events: none;
         }
-
-        /* dragging state */
         .ap-slot-card.is-dragging { opacity: 0.4; }
 
-        /* ── Inactive zone ── */
         .ap-inactive-zone {
           border: 1.5px dashed #e2e8f0;
           border-radius: 16px;
@@ -496,13 +499,11 @@ const ActivityPanel = () => {
           border-color: #f59e0b;
           background: #fffbeb;
         }
-
         .ap-inactive-grid {
           display: grid;
           grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
           gap: 10px;
         }
-
         .ap-inactive-card {
           position: relative;
           border-radius: 10px;
@@ -558,7 +559,6 @@ const ActivityPanel = () => {
           color: rgba(255,255,255,0.75);
           font-weight: 600;
         }
-
         .ap-inactive-empty {
           padding: 2rem;
           text-align: center;
@@ -566,7 +566,6 @@ const ActivityPanel = () => {
           font-size: 0.82rem;
         }
 
-        /* ── Legend ── */
         .ap-legend {
           background: #f8fafc;
           border-radius: 10px;
@@ -580,7 +579,6 @@ const ActivityPanel = () => {
         }
         .ap-legend-icon { font-size: 1rem; flex-shrink: 0; margin-top: 1px; }
 
-        /* ── Toast ── */
         .ap-toast {
           position: fixed;
           bottom: 2rem;
@@ -601,7 +599,6 @@ const ActivityPanel = () => {
           to   { opacity: 1; transform: translateY(0); }
         }
 
-        /* ── Modal ── */
         .ap-modal-bg {
           position: fixed; inset: 0; z-index: 1000;
           background: rgba(10,10,10,0.45);
@@ -710,13 +707,14 @@ const ActivityPanel = () => {
             <strong>Cara pakai:</strong> Drag kartu dari <em>Non-aktif</em> ke
             slot posisi yang diinginkan di zona <em>Aktif</em> untuk
             menampilkannya di landing page. Drag kartu aktif ke zona{" "}
-            <em>Non-aktif</em> untuk menyembunyikannya. Setelah selesai
-            mengatur, klik <strong>Simpan Perubahan</strong> untuk menerapkan ke
-            tampilan depan.
+            <em>Non-aktif</em> untuk menyembunyikannya. Drag kartu aktif ke slot
+            lain untuk menukar posisinya. Setelah selesai mengatur, klik{" "}
+            <strong>Simpan Perubahan</strong> untuk menerapkan ke tampilan
+            depan.
           </span>
         </div>
 
-        {/* ── Save/Cancel bar (hanya muncul jika ada perubahan) ── */}
+        {/* ── Save/Cancel bar ── */}
         {isDirty && (
           <div className="ap-save-bar">
             <span className="ap-save-bar-msg">
@@ -757,9 +755,7 @@ const ActivityPanel = () => {
                   {activeRows.length} / 5
                 </span>
               </p>
-
               <div className="ap-active-zone">
-                {/* Top row: 3 slots */}
                 <div className="ap-slots-top">
                   {IMAGE_TYPE_OPTIONS.slice(0, 3).map((slot) => (
                     <ActiveSlot
@@ -783,7 +779,6 @@ const ActivityPanel = () => {
                     />
                   ))}
                 </div>
-                {/* Bottom row: 2 slots */}
                 <div className="ap-slots-bottom">
                   {IMAGE_TYPE_OPTIONS.slice(3).map((slot) => (
                     <ActiveSlot
@@ -817,7 +812,6 @@ const ActivityPanel = () => {
                 Non-aktif
                 <span className="count-pill">{inactiveRows.length}</span>
               </p>
-
               <div
                 className={`ap-inactive-zone${dragOverInactive ? " drag-over" : ""}`}
                 onDragOver={(e) => {
@@ -900,14 +894,13 @@ function ActiveSlot({
   onDelete,
   wide,
 }) {
-  // Check if this card is pending (different from saved state)
   const isPending = card
     ? (() => {
         const saved = savedRows.find((s) => s.id === card.id);
         return (
           !saved ||
-          saved.is_active != card.is_active ||
-          saved.image_type !== card.image_type
+          Number(saved.is_active) !== Number(card.is_active) ||
+          (saved.image_type ?? null) !== (card.image_type ?? null)
         );
       })()
     : false;
@@ -969,10 +962,9 @@ function InactiveCard({
   onEdit,
   onDelete,
 }) {
-  // Dot jika kartu ini sebelumnya aktif tapi sekarang pending non-aktif
   const isPending = (() => {
     const saved = savedRows.find((s) => s.id === row.id);
-    return saved && saved.is_active != row.is_active;
+    return saved && Number(saved.is_active) !== Number(row.is_active);
   })();
 
   return (
@@ -1020,6 +1012,7 @@ function InactiveCard({
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ActivityModal
+// FIX: edit gambar sekarang menggunakan endpoint by ID, bukan by image_type
 // ─────────────────────────────────────────────────────────────────────────────
 const ActivityModal = ({
   mode,
@@ -1054,14 +1047,29 @@ const ActivityModal = ({
     setSaving(true);
     try {
       if (isEdit) {
+        // FIX: Update gambar menggunakan endpoint by ID agar tidak menimpa row lain
+        // yang kebetulan punya image_type sama
         if (imageFile) {
           const fd = new FormData();
           fd.append("image", imageFile);
-          fd.append("image_type", imageType);
-          await fetch(`${API}/update-updates-section-image/${imageType}`, {
-            method: "PUT",
-            body: fd,
-          });
+          // Gunakan endpoint baru by ID (lihat catatan backend di bawah)
+          const res = await fetch(
+            `${API}/update-updates-section-image-by-id/${data.id}`,
+            {
+              method: "PUT",
+              body: fd,
+            },
+          );
+          if (!res.ok) {
+            // Fallback ke endpoint lama jika endpoint baru belum ada
+            const fd2 = new FormData();
+            fd2.append("image", imageFile);
+            fd2.append("image_type", imageType);
+            await fetch(`${API}/update-updates-section-image/${imageType}`, {
+              method: "PUT",
+              body: fd2,
+            });
+          }
         }
         if (description !== (data?.description || "")) {
           await fetch(`${API}/update-updates-section-description`, {
@@ -1080,13 +1088,16 @@ const ActivityModal = ({
         fd.append("image", imageFile);
         fd.append("image_type", imageType);
         fd.append("description", description);
+        // FIX: new record selalu is_active=0, biarkan user drag ke slot
+        fd.append("is_active", "0");
         await fetch(`${API}/create-updates-section-image`, {
           method: "POST",
           body: fd,
         });
       }
       onSuccess();
-    } catch {
+    } catch (err) {
+      console.error(err);
       showToast("Gagal menyimpan", "error");
     } finally {
       setSaving(false);
@@ -1125,7 +1136,6 @@ const ActivityModal = ({
               ))}
             </select>
           </div>
-
           <div className="ap-field">
             <label>
               Gambar {!isEdit && <span style={{ color: "#ef4444" }}>*</span>}
@@ -1140,7 +1150,6 @@ const ActivityModal = ({
               <img className="ap-img-preview" src={preview} alt="preview" />
             )}
           </div>
-
           <div className="ap-field">
             <label>Deskripsi Aktivitas</label>
             <textarea
@@ -1149,7 +1158,6 @@ const ActivityModal = ({
               onChange={(e) => setDescription(e.target.value)}
             />
           </div>
-
           {!isEdit && activeCount >= 5 && (
             <div
               style={{

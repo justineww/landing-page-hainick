@@ -217,13 +217,16 @@ app.post(
   },
 );
 
-// ✅ FIXED: description ikut diinsert sekaligus bersama image
+// ✅ FIX: is_active dari frontend kini disimpan ke database
 app.post(
   "/api/create-updates-section-image",
   upload.single("image"),
   async (req, res) => {
     const imageType = req.body.image_type;
-    const description = req.body.description || null; // ← ambil description dari FormData
+    const description = req.body.description || null;
+    // FIX: baca is_active dari body, default 0 jika tidak dikirim
+    const isActive =
+      req.body.is_active !== undefined ? Number(req.body.is_active) : 0;
 
     if (!imageType)
       return res.status(400).json({ error: "Tipe gambar harus diisi" });
@@ -233,20 +236,19 @@ app.post(
     const image = await convertToWebp(req.file.path);
 
     db.query(
-      "INSERT INTO updates_section (image_type, image_url, description) VALUES (?, ?, ?)",
-      [imageType, image, description], // ← description langsung diinsert
+      "INSERT INTO updates_section (image_type, image_url, description, is_active) VALUES (?, ?, ?, ?)",
+      [imageType, image, description, isActive],
       (err, result) => {
         if (err) {
           console.error("❌ Error insert updates_section:", err);
-          return res
-            .status(500)
-            .json({
-              error: "Gagal menambahkan updates section",
-              detail: err.message,
-            });
+          return res.status(500).json({
+            error: "Gagal menambahkan updates section",
+            detail: err.message,
+          });
         }
         res.status(201).json({
           message: "Updates section berhasil ditambahkan",
+          id: result.insertId,
           imagetype: imageType,
           imageUrl: image,
         });
@@ -331,7 +333,6 @@ app.post(
   "/api/create-creators-photocard",
   upload.single("image"),
   async (req, res) => {
-    // ✅ FIXED: gunakan let bukan const agar bisa di-assign
     let image = null;
     if (req.file) {
       image = await convertToWebp(req.file.path);
@@ -499,6 +500,39 @@ app.put(
   },
 );
 
+// ✅ FIX: endpoint update gambar berdasarkan ID (bukan image_type)
+// agar tidak menimpa record lain yang kebetulan punya image_type sama
+app.put(
+  "/api/update-updates-section-image-by-id/:id",
+  upload.single("image"),
+  async (req, res) => {
+    const id = req.params.id;
+
+    if (!req.file)
+      return res.status(400).json({ error: "Gambar harus diunggah" });
+
+    const image = await convertToWebp(req.file.path);
+
+    db.query(
+      "UPDATE updates_section SET image_url = ? WHERE id = ?",
+      [image, id],
+      (err) => {
+        if (err) {
+          console.error("❌ Error update image by id:", err);
+          return res
+            .status(500)
+            .json({ error: "Gagal memperbarui gambar updates section" });
+        }
+        res.status(200).json({
+          message: "Gambar updates section berhasil diperbarui",
+          imageUrl: image,
+        });
+      },
+    );
+  },
+);
+
+// endpoint lama — tetap dipertahankan sebagai fallback
 app.put(
   "/api/update-updates-section-image/:image_type",
   upload.single("image"),
@@ -526,37 +560,62 @@ app.put(
   },
 );
 
-// ✅ FIXED: tambah WHERE image_type agar tidak update semua baris
+// ✅ FIX: update deskripsi berdasarkan ID bukan image_type
+// agar tidak menimpa record lain yang punya image_type sama
 app.put("/api/update-updates-section-description", (req, res) => {
-  const { description, image_type } = req.body;
+  const { description, image_type, id } = req.body;
+
   if (!description)
     return res.status(400).json({ error: "Deskripsi harus diisi" });
-  if (!image_type)
-    return res.status(400).json({ error: "Image type harus diisi" });
 
-  db.query(
-    "UPDATE updates_section SET description = ? WHERE image_type = ?",
-    [description, image_type],
-    (err) => {
-      if (err)
-        return res
-          .status(500)
-          .json({ error: "Gagal memperbarui deskripsi updates section" });
-      res
-        .status(200)
-        .json({ message: "Deskripsi updates section berhasil diperbarui" });
-    },
-  );
+  // Prioritaskan update by ID jika tersedia, fallback ke image_type
+  if (id) {
+    db.query(
+      "UPDATE updates_section SET description = ? WHERE id = ?",
+      [description, id],
+      (err) => {
+        if (err) {
+          console.error("❌ Error update description by id:", err);
+          return res
+            .status(500)
+            .json({ error: "Gagal memperbarui deskripsi updates section" });
+        }
+        res
+          .status(200)
+          .json({ message: "Deskripsi updates section berhasil diperbarui" });
+      },
+    );
+  } else if (image_type) {
+    db.query(
+      "UPDATE updates_section SET description = ? WHERE image_type = ?",
+      [description, image_type],
+      (err) => {
+        if (err)
+          return res
+            .status(500)
+            .json({ error: "Gagal memperbarui deskripsi updates section" });
+        res
+          .status(200)
+          .json({ message: "Deskripsi updates section berhasil diperbarui" });
+      },
+    );
+  } else {
+    return res.status(400).json({ error: "ID atau image_type harus diisi" });
+  }
 });
 
-// ✅ FIXED: endpoint status toggle yang hilang — ditambahkan kembali
+// ✅ FIX: is_active dan image_type diupdate sekaligus dalam satu query
 app.put("/api/update-updates-section-status/:id", (req, res) => {
   const id = req.params.id;
-  const { is_active } = req.body;
+  const { is_active, image_type } = req.body;
+
+  if (is_active === undefined || is_active === null) {
+    return res.status(400).json({ error: "is_active harus diisi" });
+  }
 
   db.query(
-    "UPDATE updates_section SET is_active = ? WHERE id = ?",
-    [is_active, id],
+    "UPDATE updates_section SET is_active = ?, image_type = ? WHERE id = ?",
+    [Number(is_active), image_type ?? null, id],
     (err) => {
       if (err) {
         console.error("❌ Error update status:", err);
@@ -621,7 +680,6 @@ app.put(
   upload.single("image"),
   async (req, res) => {
     const id = req.params.id;
-    // ✅ FIXED: gunakan let bukan const
     let image = null;
     if (req.file) {
       image = await convertToWebp(req.file.path);
@@ -749,10 +807,10 @@ app.delete("/api/delete-hainick-assets/:image_type", (req, res) => {
   );
 });
 
-app.delete("/api/delete-updates-section/:image_type", (req, res) => {
+app.delete("/api/delete-updates-section/:id", (req, res) => {
   db.query(
-    "DELETE FROM updates_section WHERE image_type = ?",
-    [req.params.image_type],
+    "DELETE FROM updates_section WHERE id = ?",
+    [req.params.id],
     (err) => {
       if (err)
         return res

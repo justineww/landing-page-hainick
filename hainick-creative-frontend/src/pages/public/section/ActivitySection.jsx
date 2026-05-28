@@ -1,10 +1,19 @@
 // ActivitySection.jsx
 // Data di-fetch dari /api/updates-section, difilter is_active == 1, max 5 item
 // Klik gambar → tampil deskripsi overlay
+//
+// FIX: Setelah ActivityPanel menyimpan perubahan, ActivitySection kini otomatis
+//      re-fetch data via:
+//      1. Polling setiap POLL_INTERVAL ms (default 5 detik)
+//      2. Refetch saat tab/window kembali aktif (visibilitychange + focus)
+//      Kedua mekanisme berhenti saat komponen di-unmount.
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 
 const API = "http://localhost:8000/api";
+
+// ── Interval polling (ms) ─────────────────────────────────────────────────────
+const POLL_INTERVAL = 5000;
 
 // ── Avatar placeholder untuk Community section ───────────────────────────────
 const AVATARS = [
@@ -28,78 +37,85 @@ const SLOT_ORDER = [
 const JOIN_LINK = "https://wa.me/6281234567890"; // TODO: ganti dengan link yang sesuai
 
 // ── Merge rows: gabungkan baris dengan image_type yang sama ──────────────────
-// Mengatasi bug di mana gambar dan deskripsi tersimpan sebagai baris terpisah
 function mergeRows(rawData) {
   const map = {};
-
   rawData.forEach((item) => {
     const key = item.image_type;
-
-    // Lewati baris yang image_type-nya tidak ada di SLOT_ORDER
     if (!key || !SLOT_ORDER.includes(key)) return;
-
     if (!map[key]) {
       map[key] = { ...item };
     } else {
-      // Merge: ambil nilai yang tidak null/kosong dari baris manapun
-      if (!map[key].image_url && item.image_url) {
+      if (!map[key].image_url && item.image_url)
         map[key].image_url = item.image_url;
-      }
-      if (!map[key].description && item.description) {
+      if (!map[key].description && item.description)
         map[key].description = item.description;
-      }
-      // Gunakan is_active = 1 jika salah satu baris aktif
-      if (item.is_active == 1) {
-        map[key].is_active = 1;
-      }
+      if (item.is_active === 1) map[key].is_active = 1;
     }
   });
-
   return Object.values(map);
 }
 
 // ── ActivitySection ───────────────────────────────────────────────────────────
-
 export default function ActivitySection({ title = "Hainick Update" }) {
   const [activities, setActivities] = useState([]);
   const [selectedActivity, setSelectedActivity] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const res = await fetch(`${API}/updates-section`);
-        const data = await res.json();
+  // ── Core fetch (tidak reset loading setelah fetch pertama, agar tidak flicker) ──
+  const isMounted = useRef(true);
 
-        const raw = Array.isArray(data) ? data : [];
+  const fetchData = useCallback(async (isInitial = false) => {
+    if (isInitial) setLoading(true);
+    try {
+      const res = await fetch(`${API}/updates-section`);
+      const data = await res.json();
+      if (!isMounted.current) return;
 
-        // ── PERBAIKAN BUG: merge baris yang terpisah ──
-        const merged = mergeRows(raw);
-
-        // Ambil yang aktif saja, max 5
-        const activeItems = merged
-          .filter((item) => item.is_active == 1)
-          .slice(0, 5);
-
-        // Sort berdasarkan urutan SLOT_ORDER
-        activeItems.sort((a, b) => {
+      const raw = Array.isArray(data) ? data : [];
+      const merged = mergeRows(raw);
+      const activeItems = merged
+        .filter((item) => item.is_active === 1)
+        .slice(0, 5)
+        .sort((a, b) => {
           const ai = SLOT_ORDER.indexOf(a.image_type);
           const bi = SLOT_ORDER.indexOf(b.image_type);
           return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
         });
 
-        setActivities(activeItems);
-      } catch (e) {
-        console.error("Gagal mengambil data activity:", e);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
+      setActivities(activeItems);
+    } catch (e) {
+      console.error("Gagal mengambil data activity:", e);
+    } finally {
+      if (isMounted.current) setLoading(false);
+    }
   }, []);
 
-  // Kumpulkan semua deskripsi dari item aktif untuk ditampilkan di bawah grid
+  useEffect(() => {
+    isMounted.current = true;
+
+    // ── 1. Fetch pertama ──
+    fetchData(true);
+
+    // ── 2. Polling otomatis ──
+    const pollTimer = setInterval(() => fetchData(false), POLL_INTERVAL);
+
+    // ── 3. Refetch saat tab kembali aktif ──
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") fetchData(false);
+    };
+    const handleFocus = () => fetchData(false);
+
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      isMounted.current = false;
+      clearInterval(pollTimer);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [fetchData]);
+
   const topItems = activities.slice(0, 3);
   const bottomItems = activities.slice(3);
 
@@ -312,8 +328,6 @@ export default function ActivitySection({ title = "Hainick Update" }) {
         .act-modal-body {
           padding: 1.5rem 1.6rem 1.8rem;
         }
-
-        /* ── act-modal-tag DIHAPUS — tidak ditampilkan lagi ── */
 
         .act-modal-desc {
           font-size: 0.925rem;
@@ -591,7 +605,6 @@ export default function ActivitySection({ title = "Hainick Update" }) {
               </button>
             </div>
             <div className="act-modal-body">
-              {/* ── Enum tag (image_left, dst) DIHAPUS ── */}
               <p className="act-modal-desc">
                 {selectedActivity.description ? (
                   selectedActivity.description
