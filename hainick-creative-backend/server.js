@@ -9,12 +9,12 @@ const fs = require("fs");
 
 const app = express();
 
-// Middleware
+// ── Middleware ────────────────────────────────────────────────────────────────
 app.use(cors());
 app.use(bodyParser.json());
 app.use("/uploads", express.static(path.join(__dirname, "public/uploads")));
 
-// Koneksi database
+// ── Koneksi database ──────────────────────────────────────────────────────────
 const db = mysql.createConnection({
   host: "localhost",
   user: "root",
@@ -30,7 +30,7 @@ db.connect((err) => {
   }
 });
 
-// Multer
+// ── Multer ────────────────────────────────────────────────────────────────────
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, "public/uploads");
@@ -44,25 +44,22 @@ const upload = multer({ storage });
 // ── Convert to .webp and delete original ─────────────────────────────────────
 const convertToWebp = async (filePath) => {
   const normalizedPath = filePath.replace(/\\/g, "/");
-
   const webpFilename =
     path.basename(normalizedPath, path.extname(normalizedPath)) + ".webp";
   const webpPath = path.join("public/uploads", webpFilename);
-
   const inputBuffer = fs.readFileSync(normalizedPath);
-
   await sharp(inputBuffer).webp({ quality: 80 }).toFile(webpPath);
-
   try {
     fs.unlinkSync(normalizedPath);
   } catch (err) {
     console.error("Failed to delete original file:", err.message);
   }
-
   return `/uploads/${webpFilename}`;
 };
 
-// ── Login ─────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// LOGIN
+// ─────────────────────────────────────────────────────────────────────────────
 app.get("/api/login", (req, res) => {
   const { username, password } = req.query;
   const sql = "SELECT * FROM login WHERE username = ? AND password = ?";
@@ -75,7 +72,9 @@ app.get("/api/login", (req, res) => {
   });
 });
 
-// ── Load ──────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// LOAD (GET)
+// ─────────────────────────────────────────────────────────────────────────────
 app.get("/api/creators", (req, res) => {
   db.query("SELECT * FROM creators", (err, result) => {
     if (err)
@@ -113,23 +112,31 @@ app.get("/api/testimonials", (req, res) => {
 });
 
 app.get("/api/creators-photocard", (req, res) => {
-  db.query("SELECT * FROM creators_photocard", (err, result) => {
-    if (err)
-      return res
-        .status(500)
-        .json({ error: "Gagal mengambil data creators photocard" });
-    res.status(200).json(result);
-  });
+  db.query(
+    "SELECT * FROM creators_photocard ORDER BY id ASC",
+    (err, result) => {
+      if (err)
+        return res
+          .status(500)
+          .json({ error: "Gagal mengambil data creators photocard" });
+      res.status(200).json(result);
+    },
+  );
 });
 
 app.get("/api/creators-photocard-statistics", (req, res) => {
-  db.query("SELECT * FROM creators_photocard_statistics", (err, result) => {
-    if (err)
-      return res
-        .status(500)
-        .json({ error: "Gagal mengambil data creators photocard statistics" });
-    res.status(200).json(result);
-  });
+  db.query(
+    "SELECT * FROM creators_photocard_statistics LIMIT 1",
+    (err, result) => {
+      if (err)
+        return res
+          .status(500)
+          .json({
+            error: "Gagal mengambil data creators photocard statistics",
+          });
+      res.status(200).json(result);
+    },
+  );
 });
 
 app.get("/api/contact", (req, res) => {
@@ -140,7 +147,56 @@ app.get("/api/contact", (req, res) => {
   });
 });
 
-// ── Create ────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// SEED — inisialisasi 20 row photocard + 1 row statistik (aman dipanggil ulang)
+// ─────────────────────────────────────────────────────────────────────────────
+app.post("/api/seed-creators-photocard", (req, res) => {
+  // INSERT IGNORE: melewati row yang id-nya sudah ada, tidak menimpa data lama
+  const photoValues = Array.from({ length: 20 }, (_, i) => [i + 1, null]);
+
+  const sqlPhoto = `INSERT IGNORE INTO creators_photocard (id, image_url) VALUES ?`;
+
+  db.query(sqlPhoto, [photoValues], (err, resultPhoto) => {
+    if (err) {
+      console.error("❌ Seed creators_photocard gagal:", err);
+      return res.status(500).json({
+        error: "Gagal seed creators_photocard",
+        detail: err.message,
+      });
+    }
+
+    // INSERT row default statistik hanya jika tabel masih kosong
+    const sqlStats = `
+      INSERT INTO creators_photocard_statistics (creators, brand, projects)
+      SELECT '25', '100', '+78'
+      WHERE NOT EXISTS (SELECT 1 FROM creators_photocard_statistics)
+    `;
+
+    db.query(sqlStats, (err2, resultStats) => {
+      if (err2) {
+        console.error("❌ Seed creators_photocard_statistics gagal:", err2);
+        return res.status(500).json({
+          error: "Gagal seed creators_photocard_statistics",
+          detail: err2.message,
+        });
+      }
+
+      return res.status(200).json({
+        message: `Seed selesai! ${resultPhoto.affectedRows} row photocard dibuat, statistik: ${
+          resultStats.affectedRows > 0
+            ? "row default ditambahkan"
+            : "sudah ada, dilewati"
+        }.`,
+        photocard_inserted: resultPhoto.affectedRows,
+        stats_inserted: resultStats.affectedRows,
+      });
+    });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CREATE (POST)
+// ─────────────────────────────────────────────────────────────────────────────
 app.post("/api/create-creators", upload.single("image"), async (req, res) => {
   const name = req.body.name;
   if (!name) return res.status(400).json({ error: "Nama harus diisi" });
@@ -153,9 +209,7 @@ app.post("/api/create-creators", upload.single("image"), async (req, res) => {
   const urlX = req.body.url_x || "";
 
   let image = null;
-  if (req.file) {
-    image = await convertToWebp(req.file.path);
-  }
+  if (req.file) image = await convertToWebp(req.file.path);
 
   const roles = req.body.roles
     ? req.body.roles
@@ -191,14 +245,12 @@ app.post(
   upload.single("image"),
   async (req, res) => {
     const imageType = req.body.image_type;
-
     if (!imageType)
       return res.status(400).json({ error: "Tipe gambar harus diisi" });
     if (!req.file)
       return res.status(400).json({ error: "Gambar harus diunggah" });
 
     const image = await convertToWebp(req.file.path);
-
     db.query(
       "INSERT INTO website_assets (image_type, image_url) VALUES (?, ?)",
       [imageType, image],
@@ -217,14 +269,12 @@ app.post(
   },
 );
 
-// ✅ FIX: is_active dari frontend kini disimpan ke database
 app.post(
   "/api/create-updates-section-image",
   upload.single("image"),
   async (req, res) => {
     const imageType = req.body.image_type;
     const description = req.body.description || null;
-    // FIX: baca is_active dari body, default 0 jika tidak dikirim
     const isActive =
       req.body.is_active !== undefined ? Number(req.body.is_active) : 0;
 
@@ -234,17 +284,18 @@ app.post(
       return res.status(400).json({ error: "Gambar harus diunggah" });
 
     const image = await convertToWebp(req.file.path);
-
     db.query(
       "INSERT INTO updates_section (image_type, image_url, description, is_active) VALUES (?, ?, ?, ?)",
       [imageType, image, description, isActive],
       (err, result) => {
         if (err) {
           console.error("❌ Error insert updates_section:", err);
-          return res.status(500).json({
-            error: "Gagal menambahkan updates section",
-            detail: err.message,
-          });
+          return res
+            .status(500)
+            .json({
+              error: "Gagal menambahkan updates section",
+              detail: err.message,
+            });
         }
         res.status(201).json({
           message: "Updates section berhasil ditambahkan",
@@ -267,10 +318,12 @@ app.post("/api/create-updates-section-description", (req, res) => {
         return res
           .status(500)
           .json({ error: "Gagal menambahkan deskripsi updates section" });
-      res.status(201).json({
-        message: "Deskripsi updates section berhasil ditambahkan",
-        id: result.insertId,
-      });
+      res
+        .status(201)
+        .json({
+          message: "Deskripsi updates section berhasil ditambahkan",
+          id: result.insertId,
+        });
     },
   );
 });
@@ -283,9 +336,7 @@ app.post(
     const testimonial = req.body.testimonial;
 
     let image = null;
-    if (req.file) {
-      image = await convertToWebp(req.file.path);
-    }
+    if (req.file) image = await convertToWebp(req.file.path);
 
     db.query(
       "INSERT INTO testimonials (profile_image, testimonial, name) VALUES (?, ?, ?)",
@@ -295,10 +346,12 @@ app.post(
           return res
             .status(500)
             .json({ error: "Gagal menambahkan testimonial" });
-        res.status(201).json({
-          message: "Testimonial berhasil ditambahkan",
-          id: result.insertId,
-        });
+        res
+          .status(201)
+          .json({
+            message: "Testimonial berhasil ditambahkan",
+            id: result.insertId,
+          });
       },
     );
   },
@@ -306,7 +359,6 @@ app.post(
 
 app.post("/api/create-role", (req, res) => {
   const { newRole } = req.body;
-
   db.query("SHOW COLUMNS FROM creators LIKE 'roles'", (err, result) => {
     if (err)
       return res.status(500).json({ error: "Failed getting SET values" });
@@ -321,7 +373,6 @@ app.post("/api/create-role", (req, res) => {
 
     values.push(newRole);
     const updatedSet = values.map((v) => `'${v}'`).join(",");
-
     db.query(`ALTER TABLE creators MODIFY roles SET(${updatedSet})`, (err2) => {
       if (err2) return res.status(500).json({ error: "Failed updating SET" });
       res.json({ message: "Role added successfully" });
@@ -329,14 +380,14 @@ app.post("/api/create-role", (req, res) => {
   });
 });
 
+// Endpoint create photocard tetap ada sebagai fallback,
+// tapi untuk inisialisasi 20 row gunakan /api/seed-creators-photocard
 app.post(
   "/api/create-creators-photocard",
   upload.single("image"),
   async (req, res) => {
     let image = null;
-    if (req.file) {
-      image = await convertToWebp(req.file.path);
-    }
+    if (req.file) image = await convertToWebp(req.file.path);
 
     db.query(
       "INSERT INTO creators_photocard (image_url) VALUES (?)",
@@ -346,20 +397,19 @@ app.post(
           return res
             .status(500)
             .json({ error: "Gagal menambahkan creators photocard" });
-        res.status(201).json({
-          message: "Creators photocard berhasil ditambahkan",
-          id: result.insertId,
-        });
+        res
+          .status(201)
+          .json({
+            message: "Creators photocard berhasil ditambahkan",
+            id: result.insertId,
+          });
       },
     );
   },
 );
 
 app.post("/api/create-creators-photocard-statistics", (req, res) => {
-  const creators = req.body.creators;
-  const brand = req.body.brand;
-  const projects = req.body.projects;
-
+  const { creators, brand, projects } = req.body;
   db.query(
     "INSERT INTO creators_photocard_statistics (creators, brand, projects) VALUES (?, ?, ?)",
     [creators, brand, projects],
@@ -368,21 +418,24 @@ app.post("/api/create-creators-photocard-statistics", (req, res) => {
         return res
           .status(500)
           .json({ error: "Gagal menambahkan creators photocard statistics" });
-      res.status(201).json({
-        message: "Creators photocard statistics berhasil ditambahkan",
-        id: result.insertId,
-      });
+      res
+        .status(201)
+        .json({
+          message: "Creators photocard statistics berhasil ditambahkan",
+          id: result.insertId,
+        });
     },
   );
 });
 
-// ── Update ────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// UPDATE (PUT)
+// ─────────────────────────────────────────────────────────────────────────────
 app.put(
   "/api/update-creators/:id",
   upload.single("image"),
   async (req, res) => {
     const id = req.params.id;
-
     const name = req.body.name;
     const instagram = Number(req.body.followers_instagram) || 0;
     const tiktok = Number(req.body.followers_tiktok) || 0;
@@ -434,20 +487,21 @@ app.put(
       values.push(profileImage);
     }
 
-    if (fields.length === 0) {
+    if (fields.length === 0)
       return res.status(400).json({ error: "Tidak ada data yang diperbarui" });
-    }
 
     values.push(id);
-    const sql = `UPDATE creators SET ${fields.join(", ")} WHERE id = ?`;
-
-    db.query(sql, values, (err) => {
-      if (err) {
-        console.error("❌ Error updating creator:", err);
-        return res.status(500).json({ error: "Gagal memperbarui creator" });
-      }
-      res.status(200).json({ message: "Creator berhasil diperbarui" });
-    });
+    db.query(
+      `UPDATE creators SET ${fields.join(", ")} WHERE id = ?`,
+      values,
+      (err) => {
+        if (err) {
+          console.error("❌ Error updating creator:", err);
+          return res.status(500).json({ error: "Gagal memperbarui creator" });
+        }
+        res.status(200).json({ message: "Creator berhasil diperbarui" });
+      },
+    );
   },
 );
 
@@ -480,12 +534,10 @@ app.put(
   upload.single("image"),
   async (req, res) => {
     const imageType = req.params.image_type;
-
     if (!req.file)
       return res.status(400).json({ error: "Gambar harus diunggah" });
 
     const image = await convertToWebp(req.file.path);
-
     db.query(
       "UPDATE website_assets SET image_url = ? WHERE image_type = ?",
       [image, imageType],
@@ -500,19 +552,15 @@ app.put(
   },
 );
 
-// ✅ FIX: endpoint update gambar berdasarkan ID (bukan image_type)
-// agar tidak menimpa record lain yang kebetulan punya image_type sama
 app.put(
   "/api/update-updates-section-image-by-id/:id",
   upload.single("image"),
   async (req, res) => {
     const id = req.params.id;
-
     if (!req.file)
       return res.status(400).json({ error: "Gambar harus diunggah" });
 
     const image = await convertToWebp(req.file.path);
-
     db.query(
       "UPDATE updates_section SET image_url = ? WHERE id = ?",
       [image, id],
@@ -523,27 +571,27 @@ app.put(
             .status(500)
             .json({ error: "Gagal memperbarui gambar updates section" });
         }
-        res.status(200).json({
-          message: "Gambar updates section berhasil diperbarui",
-          imageUrl: image,
-        });
+        res
+          .status(200)
+          .json({
+            message: "Gambar updates section berhasil diperbarui",
+            imageUrl: image,
+          });
       },
     );
   },
 );
 
-// endpoint lama — tetap dipertahankan sebagai fallback
+// Endpoint lama — tetap dipertahankan sebagai fallback
 app.put(
   "/api/update-updates-section-image/:image_type",
   upload.single("image"),
   async (req, res) => {
     const imageType = req.params.image_type;
-
     if (!req.file)
       return res.status(400).json({ error: "Gambar harus diunggah" });
 
     const image = await convertToWebp(req.file.path);
-
     db.query(
       "UPDATE updates_section SET image_url = ? WHERE image_type = ?",
       [image, imageType],
@@ -560,15 +608,11 @@ app.put(
   },
 );
 
-// ✅ FIX: update deskripsi berdasarkan ID bukan image_type
-// agar tidak menimpa record lain yang punya image_type sama
 app.put("/api/update-updates-section-description", (req, res) => {
   const { description, image_type, id } = req.body;
-
   if (!description)
     return res.status(400).json({ error: "Deskripsi harus diisi" });
 
-  // Prioritaskan update by ID jika tersedia, fallback ke image_type
   if (id) {
     db.query(
       "UPDATE updates_section SET description = ? WHERE id = ?",
@@ -604,14 +648,12 @@ app.put("/api/update-updates-section-description", (req, res) => {
   }
 });
 
-// ✅ FIX: is_active dan image_type diupdate sekaligus dalam satu query
 app.put("/api/update-updates-section-status/:id", (req, res) => {
   const id = req.params.id;
   const { is_active, image_type } = req.body;
 
-  if (is_active === undefined || is_active === null) {
+  if (is_active === undefined || is_active === null)
     return res.status(400).json({ error: "is_active harus diisi" });
-  }
 
   db.query(
     "UPDATE updates_section SET is_active = ?, image_type = ? WHERE id = ?",
@@ -640,7 +682,6 @@ app.put(
 
     const fields = [];
     const values = [];
-
     if (name) {
       fields.push("name = ?");
       values.push(name);
@@ -656,9 +697,8 @@ app.put(
       values.push(profileImage);
     }
 
-    if (fields.length === 0) {
+    if (fields.length === 0)
       return res.status(400).json({ error: "Tidak ada data yang diperbarui" });
-    }
 
     values.push(id);
     db.query(
@@ -675,81 +715,92 @@ app.put(
   },
 );
 
+// ── Update foto photocard berdasarkan id ──────────────────────────────────────
+// Response menyertakan imageUrl agar frontend bisa update preview langsung
 app.put(
   "/api/update-creators-photocard/:id",
   upload.single("image"),
   async (req, res) => {
     const id = req.params.id;
-    let image = null;
-    if (req.file) {
-      image = await convertToWebp(req.file.path);
-    }
+
+    if (!req.file)
+      return res.status(400).json({ error: "Gambar harus diunggah" });
+
+    const image = await convertToWebp(req.file.path);
 
     db.query(
       "UPDATE creators_photocard SET image_url = ? WHERE id = ?",
       [image, id],
-      (err) => {
-        if (err)
+      (err, result) => {
+        if (err) {
+          console.error("❌ Error update creators photocard:", err);
           return res
             .status(500)
             .json({ error: "Gagal memperbarui creators photocard" });
-        res
-          .status(200)
-          .json({ message: "Creators photocard berhasil diperbarui" });
+        }
+        if (result.affectedRows === 0) {
+          // Row dengan id tersebut belum ada — jalankan seed dulu
+          return res.status(404).json({
+            error: `Row id=${id} tidak ditemukan di creators_photocard. Jalankan seed terlebih dahulu.`,
+          });
+        }
+        res.status(200).json({
+          message: "Creators photocard berhasil diperbarui",
+          imageUrl: image,
+        });
       },
     );
   },
 );
 
+// ── Update statistik (creators / brand / projects) ────────────────────────────
+// Satu query atomik — lebih aman daripada 3 query terpisah
 app.put("/api/update-creators-photocard-statistics", (req, res) => {
-  const creators = req.body.creators;
-  const brand = req.body.brand;
-  const projects = req.body.projects;
+  const { creators, brand, projects } = req.body;
 
+  if (creators === undefined && brand === undefined && projects === undefined)
+    return res.status(400).json({ error: "Tidak ada data yang dikirim" });
+
+  const fields = [];
+  const values = [];
   if (creators !== null && creators !== undefined) {
-    db.query(
-      "UPDATE creators_photocard_statistics SET creators = ?",
-      [creators],
-      (err) => {
-        if (err)
-          return res.status(500).json({
-            error: "Gagal memperbarui creators photocard statistics (creators)",
-          });
-      },
-    );
+    fields.push("creators = ?");
+    values.push(creators);
   }
   if (brand !== null && brand !== undefined) {
-    db.query(
-      "UPDATE creators_photocard_statistics SET brand = ?",
-      [brand],
-      (err) => {
-        if (err)
-          return res.status(500).json({
-            error: "Gagal memperbarui creators photocard statistics (brand)",
-          });
-      },
-    );
+    fields.push("brand = ?");
+    values.push(brand);
   }
   if (projects !== null && projects !== undefined) {
-    db.query(
-      "UPDATE creators_photocard_statistics SET projects = ?",
-      [projects],
-      (err) => {
-        if (err)
-          return res.status(500).json({
-            error: "Gagal memperbarui creators photocard statistics (projects)",
-          });
-      },
-    );
+    fields.push("projects = ?");
+    values.push(projects);
   }
-  res
-    .status(200)
-    .json({ message: "Creators photocard statistics berhasil diperbarui" });
+
+  db.query(
+    `UPDATE creators_photocard_statistics SET ${fields.join(", ")}`,
+    values,
+    (err, result) => {
+      if (err) {
+        console.error("❌ Error update statistik:", err);
+        return res
+          .status(500)
+          .json({ error: "Gagal memperbarui creators photocard statistics" });
+      }
+      if (result.affectedRows === 0) {
+        return res.status(404).json({
+          error:
+            "Tidak ada row di creators_photocard_statistics. Jalankan seed terlebih dahulu.",
+        });
+      }
+      res
+        .status(200)
+        .json({ message: "Creators photocard statistics berhasil diperbarui" });
+    },
+  );
 });
 
 app.put("/api/update-contact", upload.single("logo"), async (req, res) => {
   const { instagram, gmail, phone_number1, phone_number2 } = req.body;
-
   const fields = [];
   const values = [];
 
@@ -775,9 +826,8 @@ app.put("/api/update-contact", upload.single("logo"), async (req, res) => {
     values.push(phone_number2);
   }
 
-  if (fields.length === 0) {
+  if (fields.length === 0)
     return res.status(400).json({ error: "Tidak ada data yang diperbarui" });
-  }
 
   db.query(`UPDATE contact SET ${fields.join(", ")}`, values, (err) => {
     if (err) return res.status(500).json({ error: "Gagal memperbarui kontak" });
@@ -785,7 +835,9 @@ app.put("/api/update-contact", upload.single("logo"), async (req, res) => {
   });
 });
 
-// ── Delete ────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// DELETE
+// ─────────────────────────────────────────────────────────────────────────────
 app.delete("/api/delete-creators/:id", (req, res) => {
   db.query("DELETE FROM creators WHERE id = ?", [req.params.id], (err) => {
     if (err) return res.status(500).json({ error: "Gagal menghapus creator" });
@@ -877,6 +929,7 @@ app.delete("/api/delete-contact", (req, res) => {
   });
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
 app.listen(8000, () => {
   console.log("🚀 Server berjalan di http://localhost:8000");
 });

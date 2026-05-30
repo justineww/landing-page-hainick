@@ -2,37 +2,36 @@ import { useState, useEffect, useRef } from "react";
 
 const BASE_URL = "http://localhost:8000";
 
-const CREATOR_DATA = {
-  brandName: "Kreator Hainick.",
-  stats: [
-    { id: "talents", value: 25, prefix: "", suffix: "", label: "Talents" },
-    { id: "brands", value: 100, prefix: "", suffix: "", label: "Brands" },
-    { id: "projects", value: 78, prefix: "+", suffix: "", label: "Projects" },
-  ],
-  // 8 kolom, distribusi: 3-3-2-2-2-2-3-3 = 20 kartu
-  cards: [
-    { id: 1, col: 0, row: 0, image_url: null, name: "Talent 1" },
-    { id: 2, col: 0, row: 1, image_url: null, name: "Talent 2" },
-    { id: 3, col: 0, row: 2, image_url: null, name: "Talent 3" },
-    { id: 4, col: 1, row: 0, image_url: null, name: "Talent 4" },
-    { id: 5, col: 1, row: 1, image_url: null, name: "Talent 5" },
-    { id: 6, col: 1, row: 2, image_url: null, name: "Talent 6" },
-    { id: 7, col: 2, row: 0, image_url: null, name: "Talent 7" },
-    { id: 8, col: 2, row: 1, image_url: null, name: "Talent 8" },
-    { id: 9, col: 3, row: 0, image_url: null, name: "Talent 9" },
-    { id: 10, col: 3, row: 1, image_url: null, name: "Talent 10" },
-    { id: 11, col: 4, row: 0, image_url: null, name: "Talent 11" },
-    { id: 12, col: 4, row: 1, image_url: null, name: "Talent 12" },
-    { id: 13, col: 5, row: 0, image_url: null, name: "Talent 13" },
-    { id: 14, col: 5, row: 1, image_url: null, name: "Talent 14" },
-    { id: 15, col: 6, row: 0, image_url: null, name: "Talent 15" },
-    { id: 16, col: 6, row: 1, image_url: null, name: "Talent 16" },
-    { id: 17, col: 6, row: 2, image_url: null, name: "Talent 17" },
-    { id: 18, col: 7, row: 0, image_url: null, name: "Talent 18" },
-    { id: 19, col: 7, row: 1, image_url: null, name: "Talent 19" },
-    { id: 20, col: 7, row: 2, image_url: null, name: "Talent 20" },
-  ],
-};
+// Fallback jika API belum tersedia
+const FALLBACK_CARDS = Array.from({ length: 20 }, (_, i) => ({
+  id: i + 1,
+  image_url: null,
+}));
+
+// Susunan kolom: 3-3-2-2-2-2-3-3 = 20 kartu
+// col: 0-7, row: posisi dalam kolom
+const CARD_LAYOUT = [
+  { id: 1, col: 0, row: 0 },
+  { id: 2, col: 0, row: 1 },
+  { id: 3, col: 0, row: 2 },
+  { id: 4, col: 1, row: 0 },
+  { id: 5, col: 1, row: 1 },
+  { id: 6, col: 1, row: 2 },
+  { id: 7, col: 2, row: 0 },
+  { id: 8, col: 2, row: 1 },
+  { id: 9, col: 3, row: 0 },
+  { id: 10, col: 3, row: 1 },
+  { id: 11, col: 4, row: 0 },
+  { id: 12, col: 4, row: 1 },
+  { id: 13, col: 5, row: 0 },
+  { id: 14, col: 5, row: 1 },
+  { id: 15, col: 6, row: 0 },
+  { id: 16, col: 6, row: 1 },
+  { id: 17, col: 6, row: 2 },
+  { id: 18, col: 7, row: 0 },
+  { id: 19, col: 7, row: 1 },
+  { id: 20, col: 7, row: 2 },
+];
 
 const COL_WAVE_ORDER = [0, 7, 1, 6, 2, 5, 3, 4];
 const ROW_OPACITY = { 0: 0.35, 1: 0.7, 2: 1.0 };
@@ -58,7 +57,6 @@ function groupByCol(cards) {
 function TalentCard({ card, visible, animDelay }) {
   const [hovered, setHovered] = useState(false);
   const baseOpacity = ROW_OPACITY[card.row] ?? 1;
-  const finalOpacity = hovered ? 1 : baseOpacity;
 
   return (
     <div
@@ -74,7 +72,7 @@ function TalentCard({ card, visible, animDelay }) {
           : "0 2px 6px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.5)",
         overflow: "hidden",
         cursor: "pointer",
-        opacity: visible ? finalOpacity : 0,
+        opacity: visible ? (hovered ? 1 : baseOpacity) : 0,
         transform: visible
           ? hovered
             ? "translateY(-3px)"
@@ -90,12 +88,13 @@ function TalentCard({ card, visible, animDelay }) {
       {card.image_url ? (
         <img
           src={`${BASE_URL}${card.image_url}`}
-          alt={card.name}
+          alt={`Talent ${card.id}`}
           style={{
             width: "100%",
             height: "100%",
             objectFit: "cover",
             display: "block",
+            // Grayscale saat tidak di-hover, berwarna saat hover
             filter: hovered ? "grayscale(0%)" : "grayscale(100%)",
             transition: "filter .4s ease",
           }}
@@ -113,9 +112,16 @@ function TalentCard({ card, visible, animDelay }) {
   );
 }
 
-export default function CreatorSection() {
-  const [cards, setCards] = useState(CREATOR_DATA.cards);
-  const [stats, setStats] = useState(CREATOR_DATA.stats);
+export default function CreatorsSection() {
+  // Merge layout statis dengan data dinamis dari API
+  const [cards, setCards] = useState(
+    CARD_LAYOUT.map((layout) => ({ ...layout, image_url: null })),
+  );
+  const [stats, setStats] = useState({
+    creators: "25",
+    brand: "100",
+    projects: "+78",
+  });
   const [visibleCards, setVisibleCards] = useState({});
   const [statsVisible, setStatsVisible] = useState(false);
   const [brandVisible, setBrandVisible] = useState(false);
@@ -123,42 +129,61 @@ export default function CreatorSection() {
   const sectionRef = useRef(null);
   const triggeredRef = useRef(false);
 
+  // ── Fetch data dari API ───────────────────────────────────────────────────
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchPhotocards = async () => {
       try {
-        const res = await fetch(`${BASE_URL}/api/talents`);
-        if (res.ok) {
-          const data = await res.json();
-          setCards((prev) =>
-            prev.map((card, idx) => ({
-              ...card,
-              image_url: data[idx]?.image_url ?? card.image_url,
-              name: data[idx]?.name ?? card.name,
-            })),
-          );
-        }
+        const res = await fetch(`${BASE_URL}/api/creators-photocard`);
+        if (!res.ok) return;
+        const data = await res.json(); // array [{id, image_url}, ...]
+
+        setCards((prev) =>
+          prev.map((card) => {
+            // Cari di API berdasarkan urutan index (data[card.id - 1])
+            // atau bisa juga match by id jika API mengembalikan field id
+            const apiItem =
+              data.find((d) => d.id === card.id) ?? data[card.id - 1];
+            return apiItem
+              ? { ...card, image_url: apiItem.image_url ?? card.image_url }
+              : card;
+          }),
+        );
       } catch (err) {
-        console.error("Gagal memuat data talent:", err);
+        console.error("Gagal memuat creators photocard:", err);
       }
+    };
+
+    const fetchStats = async () => {
       try {
-        const res = await fetch(`${BASE_URL}/api/creator-stats`);
-        if (res.ok) {
-          const data = await res.json();
-          setStats((prev) =>
-            prev.map((s) => ({ ...s, value: data[s.id] ?? s.value })),
-          );
+        const res = await fetch(
+          `${BASE_URL}/api/creators-photocard-statistics`,
+        );
+        if (!res.ok) return;
+        const data = await res.json(); // [{creators, brand, projects}] atau object langsung
+        const row = Array.isArray(data) ? data[0] : data;
+        if (row) {
+          setStats({
+            creators: row.creators ?? "25",
+            brand: row.brand ?? "100",
+            projects: row.projects ?? "+78",
+          });
         }
       } catch (err) {
         console.error("Gagal memuat stats:", err);
       }
     };
-    fetchData();
+
+    fetchPhotocards();
+    fetchStats();
   }, []);
 
+  // ── Trigger animasi wave ──────────────────────────────────────────────────
   function triggerAnimation() {
     if (triggeredRef.current) return;
     triggeredRef.current = true;
+
     setTimeout(() => setBrandVisible(true), 80);
+
     const grouped = groupByCol(cards);
     COL_WAVE_ORDER.forEach((colIdx, waveIdx) => {
       (grouped[colIdx] ?? []).forEach((card, rowIdx) => {
@@ -168,23 +193,26 @@ export default function CreatorSection() {
         }, delay);
       });
     });
+
     setTimeout(() => setStatsVisible(true), 800);
   }
 
   useEffect(() => {
     const section = sectionRef.current;
     if (!section) return;
+
     const observer = new IntersectionObserver(
-      (entries) => {
+      (entries) =>
         entries.forEach((e) => {
           if (e.isIntersecting) triggerAnimation();
-        });
-      },
+        }),
       { threshold: 0.05 },
     );
     observer.observe(section);
+
     const rect = section.getBoundingClientRect();
     if (rect.top < window.innerHeight && rect.bottom > 0) triggerAnimation();
+
     return () => observer.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -208,7 +236,6 @@ export default function CreatorSection() {
           margin: "0",
           padding: "0",
           boxSizing: "border-box",
-          // position relative wajib agar anak absolute bisa diposisikan di dalam
           position: "relative",
           overflow: "hidden",
         }}
@@ -228,7 +255,7 @@ export default function CreatorSection() {
           }}
         />
 
-        {/* ── Fade bawah — menutupi batas bawah kartu ── */}
+        {/* ── Fade bawah ── */}
         <div
           style={{
             position: "absolute",
@@ -273,7 +300,7 @@ export default function CreatorSection() {
           }}
         />
 
-        {/* ── Grid kartu — full width ── */}
+        {/* ── Grid kartu ── */}
         <div
           style={{
             display: "flex",
@@ -282,7 +309,6 @@ export default function CreatorSection() {
             width: "100%",
             boxSizing: "border-box",
             padding: "0 clamp(8px, 1.5vw, 20px)",
-            // padding bawah agar section punya tinggi cukup untuk teks absolute
             paddingBottom: "200px",
           }}
         >
@@ -314,16 +340,11 @@ export default function CreatorSection() {
           ))}
         </div>
 
-        {/*
-          ── Brand + Stats ──
-          position absolute + bottom: bebas naik turun tanpa bergantung
-          pada tinggi kartu. Edit nilai "bottom" untuk mengatur posisi vertikal.
-          Makin besar nilai bottom = makin naik.
-        */}
+        {/* ── Brand + Stats ── */}
         <div
           style={{
             position: "absolute",
-            bottom: "220px", // ← EDIT INI untuk naik/turun
+            bottom: "220px",
             left: "50%",
             transform: "translateX(-50%)",
             width: "100%",
@@ -351,7 +372,7 @@ export default function CreatorSection() {
               transition: "opacity .5s ease, transform .5s ease",
             }}
           >
-            {CREATOR_DATA.brandName}
+            Kreator Hainick.
           </p>
 
           {/* Stats */}
@@ -362,9 +383,13 @@ export default function CreatorSection() {
               gap: "clamp(24px, 5vw, 72px)",
             }}
           >
-            {stats.map((stat, i) => (
+            {[
+              { value: stats.creators, label: "TALENTS" },
+              { value: stats.brand, label: "BRANDS" },
+              { value: stats.projects, label: "PROJECTS" },
+            ].map((stat, i) => (
               <div
-                key={stat.id}
+                key={i}
                 style={{
                   textAlign: "center",
                   opacity: statsVisible ? 1 : 0,
@@ -385,9 +410,7 @@ export default function CreatorSection() {
                     letterSpacing: "-0.03em",
                   }}
                 >
-                  {stat.prefix}
                   {stat.value}
-                  {stat.suffix}
                 </div>
                 <div
                   style={{
