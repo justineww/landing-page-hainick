@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import hainickLogo from "../storage/logo/hainick_logo.png";
+import HomeSection from "../pages/public/section/HomeSection";
+import AboutSection from "../pages/public/section/AboutSection";
 
 const Header = () => {
   const [scrolled, setScrolled] = useState(false);
@@ -21,8 +23,8 @@ const Header = () => {
   }, []);
 
   const navLinks = [
-    { label: "Home", href: "#home" },
-    { label: "About Us", href: "#about" },
+    { label: "Home", href: "/", element: <HomeSection /> },
+    { label: "About Us", href: "/", element: <AboutSection /> },
     { label: "Talent", href: "#talent" },
     { label: "Service", href: "#services" },
     { label: "Creator", href: "#creator" },

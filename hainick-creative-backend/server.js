@@ -129,11 +129,9 @@ app.get("/api/creators-photocard-statistics", (req, res) => {
     "SELECT * FROM creators_photocard_statistics LIMIT 1",
     (err, result) => {
       if (err)
-        return res
-          .status(500)
-          .json({
-            error: "Gagal mengambil data creators photocard statistics",
-          });
+        return res.status(500).json({
+          error: "Gagal mengambil data creators photocard statistics",
+        });
       res.status(200).json(result);
     },
   );
@@ -147,13 +145,24 @@ app.get("/api/contact", (req, res) => {
   });
 });
 
+// ── GET semua pesan dari contact_form ────────────────────────────────────────
+app.get("/api/contact-form", (req, res) => {
+  db.query("SELECT * FROM contact_form ORDER BY id DESC", (err, result) => {
+    if (err) {
+      console.error("❌ Error fetch contact_form:", err);
+      return res
+        .status(500)
+        .json({ error: "Gagal mengambil data contact form" });
+    }
+    res.status(200).json(result);
+  });
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 // SEED — inisialisasi 20 row photocard + 1 row statistik (aman dipanggil ulang)
 // ─────────────────────────────────────────────────────────────────────────────
 app.post("/api/seed-creators-photocard", (req, res) => {
-  // INSERT IGNORE: melewati row yang id-nya sudah ada, tidak menimpa data lama
   const photoValues = Array.from({ length: 20 }, (_, i) => [i + 1, null]);
-
   const sqlPhoto = `INSERT IGNORE INTO creators_photocard (id, image_url) VALUES ?`;
 
   db.query(sqlPhoto, [photoValues], (err, resultPhoto) => {
@@ -165,7 +174,6 @@ app.post("/api/seed-creators-photocard", (req, res) => {
       });
     }
 
-    // INSERT row default statistik hanya jika tabel masih kosong
     const sqlStats = `
       INSERT INTO creators_photocard_statistics (creators, brand, projects)
       SELECT '25', '100', '+78'
@@ -197,6 +205,46 @@ app.post("/api/seed-creators-photocard", (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // CREATE (POST)
 // ─────────────────────────────────────────────────────────────────────────────
+
+// ── Simpan pesan dari form kontak website ─────────────────────────────────────
+app.post("/api/create-contact-form", (req, res) => {
+  const { first_name, last_name, email, message } = req.body;
+
+  if (!first_name || !String(first_name).trim())
+    return res.status(400).json({ error: "First name harus diisi" });
+  if (!last_name || !String(last_name).trim())
+    return res.status(400).json({ error: "Last name harus diisi" });
+  if (!email || !String(email).trim())
+    return res.status(400).json({ error: "Email harus diisi" });
+  if (!message || !String(message).trim())
+    return res.status(400).json({ error: "Pesan harus diisi" });
+
+  const sql = `
+    INSERT INTO contact_form (first_name, last_name, email, message)
+    VALUES (?, ?, ?, ?)
+  `;
+
+  db.query(
+    sql,
+    [
+      String(first_name).trim(),
+      String(last_name).trim(),
+      String(email).trim(),
+      String(message).trim(),
+    ],
+    (err, result) => {
+      if (err) {
+        console.error("❌ Error insert contact_form:", err);
+        return res.status(500).json({ error: "Gagal menyimpan pesan" });
+      }
+      res.status(201).json({
+        message: "Pesan berhasil dikirim!",
+        id: result.insertId,
+      });
+    },
+  );
+});
+
 app.post("/api/create-creators", upload.single("image"), async (req, res) => {
   const name = req.body.name;
   if (!name) return res.status(400).json({ error: "Nama harus diisi" });
@@ -290,12 +338,10 @@ app.post(
       (err, result) => {
         if (err) {
           console.error("❌ Error insert updates_section:", err);
-          return res
-            .status(500)
-            .json({
-              error: "Gagal menambahkan updates section",
-              detail: err.message,
-            });
+          return res.status(500).json({
+            error: "Gagal menambahkan updates section",
+            detail: err.message,
+          });
         }
         res.status(201).json({
           message: "Updates section berhasil ditambahkan",
@@ -318,12 +364,10 @@ app.post("/api/create-updates-section-description", (req, res) => {
         return res
           .status(500)
           .json({ error: "Gagal menambahkan deskripsi updates section" });
-      res
-        .status(201)
-        .json({
-          message: "Deskripsi updates section berhasil ditambahkan",
-          id: result.insertId,
-        });
+      res.status(201).json({
+        message: "Deskripsi updates section berhasil ditambahkan",
+        id: result.insertId,
+      });
     },
   );
 });
@@ -346,12 +390,10 @@ app.post(
           return res
             .status(500)
             .json({ error: "Gagal menambahkan testimonial" });
-        res
-          .status(201)
-          .json({
-            message: "Testimonial berhasil ditambahkan",
-            id: result.insertId,
-          });
+        res.status(201).json({
+          message: "Testimonial berhasil ditambahkan",
+          id: result.insertId,
+        });
       },
     );
   },
@@ -380,8 +422,6 @@ app.post("/api/create-role", (req, res) => {
   });
 });
 
-// Endpoint create photocard tetap ada sebagai fallback,
-// tapi untuk inisialisasi 20 row gunakan /api/seed-creators-photocard
 app.post(
   "/api/create-creators-photocard",
   upload.single("image"),
@@ -397,12 +437,10 @@ app.post(
           return res
             .status(500)
             .json({ error: "Gagal menambahkan creators photocard" });
-        res
-          .status(201)
-          .json({
-            message: "Creators photocard berhasil ditambahkan",
-            id: result.insertId,
-          });
+        res.status(201).json({
+          message: "Creators photocard berhasil ditambahkan",
+          id: result.insertId,
+        });
       },
     );
   },
@@ -418,12 +456,10 @@ app.post("/api/create-creators-photocard-statistics", (req, res) => {
         return res
           .status(500)
           .json({ error: "Gagal menambahkan creators photocard statistics" });
-      res
-        .status(201)
-        .json({
-          message: "Creators photocard statistics berhasil ditambahkan",
-          id: result.insertId,
-        });
+      res.status(201).json({
+        message: "Creators photocard statistics berhasil ditambahkan",
+        id: result.insertId,
+      });
     },
   );
 });
@@ -571,18 +607,15 @@ app.put(
             .status(500)
             .json({ error: "Gagal memperbarui gambar updates section" });
         }
-        res
-          .status(200)
-          .json({
-            message: "Gambar updates section berhasil diperbarui",
-            imageUrl: image,
-          });
+        res.status(200).json({
+          message: "Gambar updates section berhasil diperbarui",
+          imageUrl: image,
+        });
       },
     );
   },
 );
 
-// Endpoint lama — tetap dipertahankan sebagai fallback
 app.put(
   "/api/update-updates-section-image/:image_type",
   upload.single("image"),
@@ -715,8 +748,6 @@ app.put(
   },
 );
 
-// ── Update foto photocard berdasarkan id ──────────────────────────────────────
-// Response menyertakan imageUrl agar frontend bisa update preview langsung
 app.put(
   "/api/update-creators-photocard/:id",
   upload.single("image"),
@@ -739,7 +770,6 @@ app.put(
             .json({ error: "Gagal memperbarui creators photocard" });
         }
         if (result.affectedRows === 0) {
-          // Row dengan id tersebut belum ada — jalankan seed dulu
           return res.status(404).json({
             error: `Row id=${id} tidak ditemukan di creators_photocard. Jalankan seed terlebih dahulu.`,
           });
@@ -753,8 +783,6 @@ app.put(
   },
 );
 
-// ── Update statistik (creators / brand / projects) ────────────────────────────
-// Satu query atomik — lebih aman daripada 3 query terpisah
 app.put("/api/update-creators-photocard-statistics", (req, res) => {
   const { creators, brand, projects } = req.body;
 
@@ -927,6 +955,23 @@ app.delete("/api/delete-contact", (req, res) => {
     if (err) return res.status(500).json({ error: "Gagal menghapus kontak" });
     res.status(200).json({ message: "Kontak berhasil dihapus" });
   });
+});
+
+// ── Hapus satu pesan dari contact_form ───────────────────────────────────────
+app.delete("/api/delete-contact-form/:id", (req, res) => {
+  db.query(
+    "DELETE FROM contact_form WHERE id = ?",
+    [req.params.id],
+    (err, result) => {
+      if (err) {
+        console.error("❌ Error delete contact_form:", err);
+        return res.status(500).json({ error: "Gagal menghapus pesan" });
+      }
+      if (result.affectedRows === 0)
+        return res.status(404).json({ error: "Pesan tidak ditemukan" });
+      res.status(200).json({ message: "Pesan berhasil dihapus" });
+    },
+  );
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

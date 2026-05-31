@@ -31,6 +31,34 @@ const EMPTY_FORM = {
   phone_number2: "",
 };
 
+// ── PENTING: InputField harus di luar ContactModal ────────────────────────────
+// Kalau didefinisikan di dalam ContactModal, setiap render akan membuat
+// komponen baru sehingga input kehilangan fokus setiap kali mengetik.
+function InputField({
+  label,
+  type = "text",
+  field,
+  placeholder,
+  icon,
+  value,
+  onChange,
+}) {
+  return (
+    <div className="field">
+      <label>{label}</label>
+      <div className="input-wrap">
+        <span className="input-icon">{icon}</span>
+        <input
+          type={type}
+          placeholder={placeholder}
+          value={value}
+          onChange={(e) => onChange(field, e.target.value)}
+        />
+      </div>
+    </div>
+  );
+}
+
 function ContactModal({ item, mode, onClose, onSave }) {
   const [form, setForm] = useState(
     item
@@ -43,25 +71,57 @@ function ContactModal({ item, mode, onClose, onSave }) {
       : { ...EMPTY_FORM },
   );
 
-  const set = (key, val) => setForm((f) => ({ ...f, [key]: val }));
+  const handleChange = (field, val) => setForm((f) => ({ ...f, [field]: val }));
+
   const handleSubmit = (e) => {
     e.preventDefault();
     onSave(form);
   };
 
-  const InputField = ({ label, type = "text", field, placeholder, icon }) => (
-    <div className="field">
-      <label>{label}</label>
-      <div className="input-wrap">
-        <span className="input-icon">{icon}</span>
-        <input
-          type={type}
-          placeholder={placeholder}
-          value={form[field]}
-          onChange={(e) => set(field, e.target.value)}
-        />
-      </div>
-    </div>
+  const IGIcon = (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="2" y="2" width="20" height="20" rx="5" />
+      <circle cx="12" cy="12" r="4" />
+      <circle cx="17.5" cy="6.5" r="0.8" fill="currentColor" stroke="none" />
+    </svg>
+  );
+  const MailIcon = (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="2" y="4" width="20" height="16" rx="3" />
+      <polyline points="2,4 12,13 22,4" />
+    </svg>
+  );
+  const PhoneIcon = (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.01 1.18 2 2 0 012 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 14.92z" />
+    </svg>
   );
 
   return (
@@ -80,87 +140,34 @@ function ContactModal({ item, mode, onClose, onSave }) {
             label="Instagram"
             field="instagram"
             placeholder="@username"
-            icon={
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <rect x="2" y="2" width="20" height="20" rx="5" />
-                <circle cx="12" cy="12" r="4" />
-                <circle
-                  cx="17.5"
-                  cy="6.5"
-                  r="0.8"
-                  fill="currentColor"
-                  stroke="none"
-                />
-              </svg>
-            }
+            icon={IGIcon}
+            value={form.instagram}
+            onChange={handleChange}
           />
           <InputField
             label="Gmail / Email"
             type="email"
             field="gmail"
             placeholder="email@domain.com"
-            icon={
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <rect x="2" y="4" width="20" height="16" rx="3" />
-                <polyline points="2,4 12,13 22,4" />
-              </svg>
-            }
+            icon={MailIcon}
+            value={form.gmail}
+            onChange={handleChange}
           />
           <InputField
             label="Nomor Telepon 1"
             field="phone_number1"
             placeholder="+62 878-xxxx-xxxx"
-            icon={
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.01 1.18 2 2 0 012 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 14.92z" />
-              </svg>
-            }
+            icon={PhoneIcon}
+            value={form.phone_number1}
+            onChange={handleChange}
           />
           <InputField
             label="Nomor Telepon 2"
             field="phone_number2"
             placeholder="+62 821-xxxx-xxxx"
-            icon={
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.81 19.79 19.79 0 01.01 1.18 2 2 0 012 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.09 7.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 14.92z" />
-              </svg>
-            }
+            icon={PhoneIcon}
+            value={form.phone_number2}
+            onChange={handleChange}
           />
           <div className="modal-foot">
             <button type="button" className="btn btn-outline" onClick={onClose}>
@@ -256,7 +263,7 @@ const ContactPanel = () => {
   const [loading, setLoading] = useState(true);
   const [modalMode, setModalMode] = useState(null);
   const [toast, setToast] = useState({ msg: "", type: "success" });
-  const [activeTab, setActiveTab] = useState("info"); // "info" | "inbox"
+  const [activeTab, setActiveTab] = useState("info");
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -436,14 +443,10 @@ const ContactPanel = () => {
         .badge { font-size: 0.68rem; font-weight: 700; padding: 2px 8px; border-radius: 20px; letter-spacing: 0.04em; text-transform: uppercase; }
         .badge-success { background: #d1fae5; color: #065f46; }
         .badge-gray { background: #f1f5f9; color: #64748b; }
-
-        /* Tab */
         .tab-bar { display: flex; gap: 4px; border-bottom: 1px solid #e9ecf0; padding: 0 1.25rem; }
         .tab-btn { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 0.8rem; font-weight: 600; padding: 10px 14px; border: none; background: none; cursor: pointer; color: #9ca3af; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.15s; }
         .tab-btn.active { color: #1a2744; border-bottom-color: #1a2744; }
         .tab-btn:hover:not(.active) { color: #374151; }
-
-        /* Inbox */
         .inbox-wrap { display: flex; flex-direction: column; }
         .inbox-header { padding: 1rem 1.25rem; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; justify-content: space-between; }
         .inbox-list { display: flex; flex-direction: column; }
@@ -477,7 +480,6 @@ const ContactPanel = () => {
         </div>
 
         <div className="panel-card">
-          {/* Tab Bar */}
           <div className="tab-bar">
             <button
               className={`tab-btn ${activeTab === "info" ? "active" : ""}`}
@@ -493,7 +495,6 @@ const ContactPanel = () => {
             </button>
           </div>
 
-          {/* Tab: Info Kontak */}
           {activeTab === "info" && (
             <>
               <div className="panel-card-header">
@@ -571,7 +572,6 @@ const ContactPanel = () => {
             </>
           )}
 
-          {/* Tab: Pesan Masuk */}
           {activeTab === "inbox" && <InboxPanel />}
         </div>
       </div>
