@@ -1,4 +1,6 @@
+// src/routes/AppRoutes.jsx
 import { Routes, Route, Navigate } from "react-router-dom";
+import ProtectedRoute from "../components/ProtectedRoutes";
 
 // Public
 import LandingPage from "../pages/public/LandingPage";
@@ -25,17 +27,19 @@ export default function AppRoutes() {
       {/* ── ADMIN AUTH ── */}
       <Route path="/admin/login" element={<Login />} />
 
-      {/* ── ADMIN PANEL ── */}
-      <Route path="/admin" element={<AdminLayout />}>
-        <Route index element={<HomePanel />} />
-        <Route path="about" element={<AboutPanel />} />
-        <Route path="talent" element={<TalentPanel />} />
-        <Route path="service" element={<ServicePanel />} />
-        <Route path="creator" element={<CreatorPanel />} />
-        <Route path="activity" element={<ActivityPanel />} />
-        <Route path="pricelist" element={<PricelistPanel />} />
-        <Route path="testimony" element={<TestimonyPanel />} />
-        <Route path="contact" element={<ContactPanel />} />
+      {/* ── ADMIN PANEL (protected) ── */}
+      <Route element={<ProtectedRoute />}>
+        <Route path="/admin" element={<AdminLayout />}>
+          <Route index element={<HomePanel />} />
+          <Route path="about" element={<AboutPanel />} />
+          <Route path="talent" element={<TalentPanel />} />
+          <Route path="service" element={<ServicePanel />} />
+          <Route path="creator" element={<CreatorPanel />} />
+          <Route path="activity" element={<ActivityPanel />} />
+          <Route path="pricelist" element={<PricelistPanel />} />
+          <Route path="testimony" element={<TestimonyPanel />} />
+          <Route path="contact" element={<ContactPanel />} />
+        </Route>
       </Route>
 
       {/* 404 fallback */}

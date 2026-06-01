@@ -1,6 +1,8 @@
+// src/pages/admin/Login.jsx
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import hainickLogo from "../../storage/logo/hainick_logo.png";
+import { auth } from "../../utils/auth";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -26,6 +28,7 @@ const Login = () => {
       );
       const data = await res.json();
       if (res.ok) {
+        auth.login();
         navigate("/admin");
       } else {
         setError(data.error || "Login gagal.");
@@ -155,7 +158,6 @@ const Login = () => {
 
       <div className="login-page">
         <div className="login-card">
-          {/* Logo */}
           <div className="login-logo">
             <img src={hainickLogo} alt="Hainick Logo" />
           </div>
@@ -164,7 +166,6 @@ const Login = () => {
           </p>
 
           <form onSubmit={handleSubmit} noValidate>
-            {/* Username */}
             <label className="login-label" htmlFor="username">
               Username
             </label>
@@ -181,7 +182,6 @@ const Login = () => {
               />
             </div>
 
-            {/* Password */}
             <label className="login-label" htmlFor="password">
               Password
             </label>
@@ -206,10 +206,8 @@ const Login = () => {
               </button>
             </div>
 
-            {/* Error */}
             {error && <div className="login-error">{error}</div>}
 
-            {/* Submit */}
             <button type="submit" className="login-btn" disabled={loading}>
               {loading ? "Memverifikasi..." : "Masuk"}
             </button>

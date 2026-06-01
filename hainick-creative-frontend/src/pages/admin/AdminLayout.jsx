@@ -1,15 +1,15 @@
+// src/pages/admin/AdminLayout.jsx
 import { useState } from "react";
 import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import hainickLogo from "../../storage/logo/hainick_logo.png";
+import { auth } from "../../utils/auth";
 
 const menuItems = [
   { label: "Home", path: "/admin", icon: "⌂" },
   { label: "About Us", path: "/admin/about", icon: "◎" },
   { label: "Talent", path: "/admin/talent", icon: "★" },
-  // { label: "Service", path: "/admin/service", icon: "◈" },
   { label: "Creator", path: "/admin/creator", icon: "✦" },
   { label: "Activity", path: "/admin/activity", icon: "◉" },
-  // { label: "Pricelist", path: "/admin/pricelist", icon: "◇" },
   { label: "Testimony", path: "/admin/testimony", icon: "❝" },
   { label: "Contact Us", path: "/admin/contact", icon: "✉" },
 ];
@@ -19,6 +19,7 @@ const AdminLayout = () => {
   const navigate = useNavigate();
 
   const handleLogout = () => {
+    auth.logout();
     navigate("/admin/login");
   };
 
@@ -230,7 +231,6 @@ const AdminLayout = () => {
       `}</style>
 
       <div className="admin-root">
-        {/* Overlay (mobile) */}
         <div
           className={`sidebar-overlay${sidebarOpen ? " show" : ""}`}
           onClick={() => setSidebarOpen(false)}
