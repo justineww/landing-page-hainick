@@ -54,7 +54,11 @@ const SOCIALS = [
     href: "https://www.instagram.com/hainickreatif/",
     label: "Instagram",
   },
-  { icon: <EmailIcon />, href: "mailto:hello@hainick.co", label: "Email" },
+  {
+    icon: <EmailIcon />,
+    href: "mailto:hainickreatif@gmail.com",
+    label: "Email",
+  },
   {
     icon: <WhatsappIcon />,
     href: "https://wa.me/6282136358570",

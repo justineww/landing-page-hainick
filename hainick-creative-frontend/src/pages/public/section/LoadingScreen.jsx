@@ -1,34 +1,3 @@
-// LoadingScreen.jsx
-// Taruh di: pages/public/section/LoadingScreen.jsx
-//
-// CARA PAKAI di LandingPage.jsx:
-//
-//   import LoadingScreen from "./section/LoadingScreen";
-//   import logoHainick from "../../../storage/logo/namafile.png"; // sesuaikan path & nama file logo
-//
-//   export default function LandingPage() {
-//     const [ready, setReady] = useState(false);
-//
-//     useEffect(() => {
-//       // Tunggu semua resource halaman selesai dimuat
-//       if (document.readyState === "complete") {
-//         // Sudah selesai — beri jeda kecil agar logo sempat terlihat
-//         setTimeout(() => setReady(true), 600);
-//       } else {
-//         const handler = () => setTimeout(() => setReady(true), 600);
-//         window.addEventListener("load", handler);
-//         return () => window.removeEventListener("load", handler);
-//       }
-//     }, []);
-//
-//     return (
-//       <>
-//         <LoadingScreen visible={!ready} logo={logoHainick} />
-//         {/* ... sisa konten halaman ... */}
-//       </>
-//     );
-//   }
-
 import { useEffect, useRef } from "react";
 
 // ── CSS loading screen — di-inject sekali ─────────────────────────────────────
@@ -64,7 +33,7 @@ const LOADING_CSS = `
 
   /* Logo */
   .ld-logo {
-    width: clamp(100px, 22vw, 160px);
+    width: clamp(50px, 22vw, 100px);
     height: auto;
     object-fit: contain;
     /* Muncul dari bawah dengan sedikit bounce */
@@ -107,10 +76,6 @@ const LOADING_CSS = `
   }
 `;
 
-// ── LoadingScreen ─────────────────────────────────────────────────────────────
-// Props:
-//   visible  — boolean, true = tampil, false = fade out lalu unmount visual
-//   logo     — string, URL/import gambar logo Hainick
 export default function LoadingScreen({ visible, logo }) {
   const styleRef = useRef(null);
 
