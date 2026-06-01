@@ -51,13 +51,13 @@ const NAV_COLS = [
 const SOCIALS = [
   {
     icon: <IGIcon />,
-    href: "https://instagram.com/hainick",
+    href: "https://www.instagram.com/hainickreatif/",
     label: "Instagram",
   },
   { icon: <EmailIcon />, href: "mailto:hello@hainick.co", label: "Email" },
   {
     icon: <WhatsappIcon />,
-    href: "https://wa.me/6281234567890",
+    href: "https://wa.me/6282136358570",
     label: "WhatsApp",
   },
 ];

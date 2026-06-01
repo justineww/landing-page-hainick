@@ -1,14 +1,11 @@
-// ActivitySection.jsx
-// Data di-fetch dari /api/updates-section, difilter is_active == 1, max 5 item
-// Klik gambar → tampil deskripsi overlay
-//
-// FIX: Setelah ActivityPanel menyimpan perubahan, ActivitySection kini otomatis
-//      re-fetch data via:
-//      1. Polling setiap POLL_INTERVAL ms (default 5 detik)
-//      2. Refetch saat tab/window kembali aktif (visibilitychange + focus)
-//      Kedua mekanisme berhenti saat komponen di-unmount.
-
 import { useState, useEffect, useRef, useCallback } from "react";
+import avatarA from "../../../storage/picture/a.png";
+import avatarB from "../../../storage/picture/b.png";
+import avatarC from "../../../storage/picture/c.png";
+import avatarD from "../../../storage/picture/d.png";
+import avatarE from "../../../storage/picture/e.png";
+import avatarF from "../../../storage/picture/f.png";
+import avatarCenter from "../../../storage/picture/center.png";
 
 const API = "http://localhost:8000/api";
 
@@ -17,12 +14,12 @@ const POLL_INTERVAL = 5000;
 
 // ── Avatar placeholder untuk Community section ───────────────────────────────
 const AVATARS = [
-  { id: 1, src: "https://placehold.co/80x80/f5c49a/fff?text=A" },
-  { id: 2, src: "https://placehold.co/80x80/9b7fcc/fff?text=B" },
-  { id: 3, src: "https://placehold.co/80x80/f4a7c0/fff?text=C" },
-  { id: 4, src: "https://placehold.co/80x80/b5d4f5/fff?text=D" },
-  { id: 5, src: "https://placehold.co/80x80/d4d4d4/fff?text=E" },
-  { id: 6, src: "https://placehold.co/80x80/f5e07a/fff?text=F" },
+  { id: 1, src: avatarA },
+  { id: 2, src: avatarB },
+  { id: 3, src: avatarC },
+  { id: 4, src: avatarD },
+  { id: 5, src: avatarE },
+  { id: 6, src: avatarF },
 ];
 
 // ── Urutan posisi enum ke slot grid ──────────────────────────────────────────
@@ -34,7 +31,7 @@ const SLOT_ORDER = [
   "image_bottom_right",
 ];
 
-const JOIN_LINK = "https://wa.me/6281234567890"; // TODO: ganti dengan link yang sesuai
+const JOIN_LINK = "https://wa.me/6282136358570";
 
 // ── Merge rows: gabungkan baris dengan image_type yang sama ──────────────────
 function mergeRows(rawData) {
@@ -390,7 +387,6 @@ export default function ActivitySection({ title = "Hainick Update" }) {
           height: 130px;
           border-radius: 50%;
           object-fit: cover;
-          border: 4px solid #fff;
           box-shadow: 0 8px 32px rgba(13,27,75,0.18);
           position: relative;
           z-index: 2;
@@ -402,7 +398,6 @@ export default function ActivitySection({ title = "Hainick Update" }) {
           height: 72px;
           border-radius: 50%;
           object-fit: cover;
-          border: 3px solid #fff;
           box-shadow: 0 4px 16px rgba(0,0,0,0.10);
           z-index: 2;
         }
@@ -556,7 +551,7 @@ export default function ActivitySection({ title = "Hainick Update" }) {
             />
             <img
               className="community-center-avatar"
-              src="https://placehold.co/130x130/1a3fc4/fff?text=:)"
+              src={avatarCenter}
               alt="community"
             />
             <img

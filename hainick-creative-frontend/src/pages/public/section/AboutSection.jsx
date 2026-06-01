@@ -31,8 +31,8 @@ const ABOUT_DATA = {
   whyChooseUs:
     "A dedicated team with expertise in talent and brand management. Strong industry connections and collaboration opportunities. Fast response and solution-driven service.",
   socials: {
-    whatsapp: "https://wa.me/6281234567890",
-    instagram: "https://instagram.com/hainick",
+    whatsapp: "https://wa.me/6282136358570",
+    instagram: "https://www.instagram.com/hainickreatif/",
   },
   showcaseVideo: {
     thumbnail:

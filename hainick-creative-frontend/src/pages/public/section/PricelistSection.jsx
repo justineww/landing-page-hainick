@@ -63,7 +63,7 @@ const ICON_MAP = {
 // KONFIGURASI - Edit sesuai kebutuhan Anda
 // =============================================
 
-const WA_NUMBER = "6281234567890"; // Ganti dengan nomor WhatsApp Anda (format: 62xxx tanpa +)
+const WA_NUMBER = "6282136358570";
 
 const CARDS = [
   {

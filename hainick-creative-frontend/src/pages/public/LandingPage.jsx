@@ -1,4 +1,4 @@
-import React from "react";
+import { useState, useEffect } from "react";
 import Header from "../../components/Header";
 import Footer from "../../components/Footer";
 import HomeSection from "./section/HomeSection";
@@ -10,10 +10,25 @@ import ActivitySection from "./section/ActivitySection";
 import TestimonySection from "./section/TestimonySection";
 import ContactSection from "./section/ContactSection";
 import CreatorSection from "./section/CreatorSection";
+import LoadingScreen from "./section/LoadingScreen";
 
-// Nanti uncomment setelah section dibuat:
+// Sesuaikan nama file logo Hainick Anda
+import logoHainick from "../../storage/logo/logo512.png";
 
 const LandingPage = () => {
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    // Jika semua resource sudah selesai load sebelum komponen mount
+    if (document.readyState === "complete") {
+      setTimeout(() => setReady(true), 600);
+    } else {
+      const handler = () => setTimeout(() => setReady(true), 600);
+      window.addEventListener("load", handler);
+      return () => window.removeEventListener("load", handler);
+    }
+  }, []);
+
   return (
     <div
       style={{
@@ -22,12 +37,15 @@ const LandingPage = () => {
         color: "#0a0a0a",
       }}
     >
+      {/* Loading screen — fade out otomatis setelah semua resource siap */}
+      <LoadingScreen visible={!ready} logo={logoHainick} />
+
       <Header />
       <main
         style={{
           display: "flex",
           flexDirection: "column",
-          gap: "0px", // ← atur jarak antar section di sini
+          gap: "0px",
         }}
       >
         <HomeSection />
