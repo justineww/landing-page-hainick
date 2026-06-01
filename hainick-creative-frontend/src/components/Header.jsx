@@ -1,7 +1,5 @@
 import { useState, useEffect } from "react";
 import hainickLogo from "../storage/logo/hainick_logo.png";
-import HomeSection from "../pages/public/section/HomeSection";
-import AboutSection from "../pages/public/section/AboutSection";
 
 const Header = () => {
   const [scrolled, setScrolled] = useState(false);
@@ -23,8 +21,8 @@ const Header = () => {
   }, []);
 
   const navLinks = [
-    { label: "Home", href: "/", element: <HomeSection /> },
-    { label: "About Us", href: "/", element: <AboutSection /> },
+    { label: "Home", href: "#home" },
+    { label: "About Us", href: "#about" },
     { label: "Talent", href: "#talent" },
     { label: "Service", href: "#services" },
     { label: "Creator", href: "#creator" },
@@ -228,7 +226,12 @@ const Header = () => {
             className="desktop-cta"
             style={{ display: "flex", justifyContent: "flex-end" }}
           >
-            <a href="#contact" className="contact-btn">
+            <a
+              href="https://wa.me/6282136358570"
+              className="contact-btn"
+              target="_blank"
+              rel="noreferrer"
+            >
               Contact Us
             </a>
           </div>

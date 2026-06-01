@@ -384,7 +384,11 @@ export default function PricelistSection() {
         }
       `}</style>
 
-      <section className="pricelist-section">
+      <section
+        id="pricelist"
+        className="pricelist-section"
+        style={{ scrollMarginTop: "80px" }}
+      >
         <div className="pricelist-header">
           <h2 className="pricelist-title">Our Pricelist</h2>
         </div>

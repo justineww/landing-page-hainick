@@ -314,7 +314,11 @@ export default function AboutSection() {
         }
       `}</style>
 
-      <section className="about-root">
+      <section
+        id="about"
+        className="about-root"
+        style={{ scrollMarginTop: "80px" }}
+      >
         {/* Heading */}
         <h1 className="about-page-title">About Hainick</h1>
         <p className="about-desc">{description}</p>

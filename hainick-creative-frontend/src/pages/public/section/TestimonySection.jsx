@@ -870,7 +870,11 @@ export default function TestimonySection() {
         }
       `}</style>
 
-      <section className="testimony-section">
+      <section
+        id="testimony"
+        className="testimony-section"
+        style={{ scrollMarginTop: "80px" }}
+      >
         <div className="testimony-header">
           <h2 className="testimony-title">Testimony Our Talent</h2>
           <p className="testimony-subtitle">

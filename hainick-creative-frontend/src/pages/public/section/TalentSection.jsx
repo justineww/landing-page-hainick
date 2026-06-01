@@ -353,7 +353,11 @@ export default function TalentSection() {
         }
       `}</style>
 
-      <section className="ts-root">
+      <section
+        id="talent"
+        className="ts-root"
+        style={{ scrollMarginTop: "80px" }}
+      >
         <h2 className="ts-title">Official Talent Hainick</h2>
 
         {error ? (

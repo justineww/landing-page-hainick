@@ -239,7 +239,11 @@ export default function ServiceSection() {
         }
       `}</style>
 
-      <section className="svc-root">
+      <section
+        id="services"
+        className="svc-root"
+        style={{ scrollMarginTop: "80px" }}
+      >
         <h2 className="svc-heading">Our Service</h2>
         <div className="svc-grid">
           {services.map((s, i) => (

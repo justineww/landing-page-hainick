@@ -228,6 +228,7 @@ export default function CreatorsSection() {
 
       <section
         ref={sectionRef}
+        id="creator"
         style={{
           fontFamily: "'Plus Jakarta Sans', sans-serif",
           background: "#ffffff",

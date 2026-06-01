@@ -466,7 +466,11 @@ export default function ActivitySection({ title = "Hainick Update" }) {
 
       <div className="act-outer">
         {/* ── Update Section ── */}
-        <section className="act-root">
+        <section
+          id="activity"
+          className="act-root"
+          style={{ scrollMarginTop: "80px" }}
+        >
           <h2 className="act-heading">{title}</h2>
 
           {loading ? (
