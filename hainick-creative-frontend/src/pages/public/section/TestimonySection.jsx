@@ -848,7 +848,7 @@ export default function TestimonySection() {
         .card-avatar-placeholder { width: 56px; height: 56px; border-radius: 50%; background: #f0f3fa; display: flex; align-items: center; justify-content: center; color: #b0bbd4; font-size: 22px; font-weight: 800; flex-shrink: 0; }
         .card-quote { font-size: 13px; color: #3d4f72; font-style: italic; line-height: 1.7; flex: 1; margin: 0; }
         .card-name { font-size: 13px; font-weight: 700; color: #0d1b4b; margin: 0; }
-        .clients-strip { background: #f8f9fc; border-top: 1px solid #edf0f8; padding: 32px 24px; box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; }
+        .clients-strip { background: #ffffff; padding: 32px 24px; box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; }
         .clients-row { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 32px 48px; max-width: 1160px; margin: 0 auto; }
         .client-logo { height: 36px; max-width: 120px; object-fit: contain; filter: grayscale(1) opacity(0.6); transition: filter 0.25s; }
         .client-logo:hover { filter: grayscale(0) opacity(1); }
