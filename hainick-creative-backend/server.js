@@ -202,6 +202,14 @@ app.post("/api/seed-creators-photocard", (req, res) => {
   });
 });
 
+app.post("/api/load-logo", (req, res) => {
+  db.query("SELECT * FROM logo", (err, result) => {
+    if (err)
+      return res.status(500).json({ error: "Gagal mengambil data logo" });
+    res.status(200).json(result);
+  });
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 // CREATE (POST)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -460,6 +468,21 @@ app.post("/api/create-creators-photocard-statistics", (req, res) => {
         message: "Creators photocard statistics berhasil ditambahkan",
         id: result.insertId,
       });
+    },
+  );
+});
+
+app.post("/api/create-logo", upload.single("logo"), async (req, res) => {
+  if (!req.file)
+    return res.status(400).json({ error: "Logo harus diunggah" });
+  const image = await convertToWebp(req.file.path);
+  db.query(
+    "INSERT INTO logo (image_url) VALUES (?)",
+    [image],
+    (err, result) => {
+      if (err)
+        return res.status(500).json({ error: "Gagal menambahkan logo" });
+      res.status(201).json({ message: "Logo berhasil ditambahkan" });
     },
   );
 });
@@ -863,6 +886,15 @@ app.put("/api/update-contact", upload.single("logo"), async (req, res) => {
   });
 });
 
+app.put("/api/update-logo/:id", upload.single("logo"), async (req, res) => {
+  const id = req.params.id;
+  const logo = await convertToWebp(req.file.path);
+  db.query("UPDATE contact SET logo = ? WHERE id = ?", [logo, id], (err) => {
+    if (err) return res.status(500).json({ error: "Gagal memperbarui logo" });
+    res.status(200).json({ message: "Logo berhasil diperbarui" });
+  });
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 // DELETE
 // ─────────────────────────────────────────────────────────────────────────────
@@ -972,6 +1004,13 @@ app.delete("/api/delete-contact-form/:id", (req, res) => {
       res.status(200).json({ message: "Pesan berhasil dihapus" });
     },
   );
+});
+
+app.delete("/api/delete-logo/:id", (req, res) => {
+  db.query("DELETE FROM logo WHERE id = ?", [req.params.id], (err) => {
+    if (err) return res.status(500).json({ error: "Gagal menghapus logo" });
+    res.status(200).json({ message: "Logo berhasil dihapus" });
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
