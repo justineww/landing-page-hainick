@@ -158,6 +158,15 @@ app.get("/api/contact-form", (req, res) => {
   });
 });
 
+// ── GET logo — tambahan endpoint GET agar bisa diakses tanpa method POST ──────
+app.get("/api/logos", (req, res) => {
+  db.query("SELECT * FROM logo ORDER BY id ASC", (err, result) => {
+    if (err)
+      return res.status(500).json({ error: "Gagal mengambil data logo" });
+    res.status(200).json(result);
+  });
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 // SEED — inisialisasi 20 row photocard + 1 row statistik (aman dipanggil ulang)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -202,8 +211,9 @@ app.post("/api/seed-creators-photocard", (req, res) => {
   });
 });
 
+// ── Load logo (POST — dipertahankan agar kompatibel) ─────────────────────────
 app.post("/api/load-logo", (req, res) => {
-  db.query("SELECT * FROM logo", (err, result) => {
+  db.query("SELECT * FROM logo ORDER BY id ASC", (err, result) => {
     if (err)
       return res.status(500).json({ error: "Gagal mengambil data logo" });
     res.status(200).json(result);
@@ -473,16 +483,16 @@ app.post("/api/create-creators-photocard-statistics", (req, res) => {
 });
 
 app.post("/api/create-logo", upload.single("logo"), async (req, res) => {
-  if (!req.file)
-    return res.status(400).json({ error: "Logo harus diunggah" });
+  if (!req.file) return res.status(400).json({ error: "Logo harus diunggah" });
   const image = await convertToWebp(req.file.path);
   db.query(
     "INSERT INTO logo (image_url) VALUES (?)",
     [image],
     (err, result) => {
-      if (err)
-        return res.status(500).json({ error: "Gagal menambahkan logo" });
-      res.status(201).json({ message: "Logo berhasil ditambahkan" });
+      if (err) return res.status(500).json({ error: "Gagal menambahkan logo" });
+      res
+        .status(201)
+        .json({ message: "Logo berhasil ditambahkan", id: result.insertId });
     },
   );
 });
@@ -886,13 +896,23 @@ app.put("/api/update-contact", upload.single("logo"), async (req, res) => {
   });
 });
 
+// ── FIX: update-logo seharusnya update tabel logo, bukan contact ──────────────
 app.put("/api/update-logo/:id", upload.single("logo"), async (req, res) => {
   const id = req.params.id;
+  if (!req.file) return res.status(400).json({ error: "Logo harus diunggah" });
   const logo = await convertToWebp(req.file.path);
-  db.query("UPDATE contact SET logo = ? WHERE id = ?", [logo, id], (err) => {
-    if (err) return res.status(500).json({ error: "Gagal memperbarui logo" });
-    res.status(200).json({ message: "Logo berhasil diperbarui" });
-  });
+  db.query(
+    "UPDATE logo SET image_url = ? WHERE id = ?",
+    [logo, id],
+    (err, result) => {
+      if (err) return res.status(500).json({ error: "Gagal memperbarui logo" });
+      if (result.affectedRows === 0)
+        return res.status(404).json({ error: "Logo tidak ditemukan" });
+      res
+        .status(200)
+        .json({ message: "Logo berhasil diperbarui", imageUrl: logo });
+    },
+  );
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

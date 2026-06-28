@@ -114,6 +114,7 @@ function Modal({ title, onClose, children }) {
 
 // ─── Admin Panel Component ─────────────────────────────────────────────────
 export const TestimonyPanel = ({ onDataChange }) => {
+  // ── Testimony state ──
   const [data, setData] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -128,6 +129,19 @@ export const TestimonyPanel = ({ onDataChange }) => {
   const [fPreview, setFPreview] = useState(null);
   const fileRef = useRef();
 
+  // ── Logo state ──
+  const [logos, setLogos] = useState([]);
+  const [logoLoading, setLogoLoading] = useState(true);
+  const [logoModal, setLogoModal] = useState(false);
+  const [logoFile, setLogoFile] = useState(null);
+  const [logoPreview, setLogoPreview] = useState(null);
+  const [logoSaving, setLogoSaving] = useState(false);
+  const logoFileRef = useRef();
+
+  // ── Active tab ──
+  const [activeTab, setActiveTab] = useState("testimony"); // "testimony" | "logo"
+
+  // ── Fetch testimony ──
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -143,8 +157,23 @@ export const TestimonyPanel = ({ onDataChange }) => {
     }
   };
 
+  // ── Fetch logos ──
+  const fetchLogos = async () => {
+    setLogoLoading(true);
+    try {
+      const res = await fetch(`${API}/api/load-logo`, { method: "POST" });
+      const json = await res.json();
+      setLogos(Array.isArray(json) ? json : []);
+    } catch {
+      showToast("Gagal memuat logo.", "error");
+    } finally {
+      setLogoLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchData();
+    fetchLogos();
   }, []);
 
   const showToast = (msg, type = "success") => {
@@ -152,6 +181,7 @@ export const TestimonyPanel = ({ onDataChange }) => {
     setTimeout(() => setToast(null), 3000);
   };
 
+  // ── Testimony handlers ──
   const openAdd = () => {
     setSelected(null);
     setFName("");
@@ -219,6 +249,57 @@ export const TestimonyPanel = ({ onDataChange }) => {
     }
   };
 
+  // ── Logo handlers ──
+  const handleLogoFile = (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    setLogoFile(f);
+    setLogoPreview(URL.createObjectURL(f));
+  };
+  const openLogoModal = () => {
+    setLogoFile(null);
+    setLogoPreview(null);
+    setLogoModal(true);
+  };
+  const handleLogoSave = async () => {
+    if (!logoFile) {
+      showToast("File logo harus dipilih.", "error");
+      return;
+    }
+    setLogoSaving(true);
+    const fd = new FormData();
+    fd.append("logo", logoFile);
+    try {
+      const res = await fetch(`${API}/api/create-logo`, {
+        method: "POST",
+        body: fd,
+      });
+      if (!res.ok) throw new Error();
+      showToast("Logo berhasil ditambahkan!");
+      setLogoModal(false);
+      fetchLogos();
+      if (onDataChange) onDataChange();
+    } catch {
+      showToast("Gagal menyimpan logo.", "error");
+    } finally {
+      setLogoSaving(false);
+    }
+  };
+  const handleLogoDelete = async (id) => {
+    if (!window.confirm("Yakin hapus logo ini?")) return;
+    try {
+      const res = await fetch(`${API}/api/delete-logo/${id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error();
+      showToast("Logo berhasil dihapus.");
+      fetchLogos();
+      if (onDataChange) onDataChange();
+    } catch {
+      showToast("Gagal menghapus logo.", "error");
+    }
+  };
+
   const filtered = data.filter(
     (d) =>
       d.name?.toLowerCase().includes(search.toLowerCase()) ||
@@ -268,168 +349,365 @@ export const TestimonyPanel = ({ onDataChange }) => {
         @keyframes toastIn { from { opacity:0; transform:translateY(12px) } to { opacity:1; transform:translateY(0) } }
         .toast-success { background: #1a2744; color: #fff; }
         .toast-error   { background: #ef4444; color: #fff; }
+
+        /* ── Tab navigation ── */
+        .tab-nav { display: flex; gap: 0; border-bottom: 1.5px solid #e9ecf0; margin-bottom: 0; }
+        .tab-btn {
+          padding: 0.7rem 1.4rem;
+          font-family: 'Plus Jakarta Sans', sans-serif;
+          font-size: 0.85rem; font-weight: 600;
+          border: none; background: none; cursor: pointer;
+          color: #9ca3af;
+          border-bottom: 2.5px solid transparent;
+          margin-bottom: -1.5px;
+          transition: color 0.18s, border-color 0.18s;
+        }
+        .tab-btn.active { color: #1a2744; border-bottom-color: #1a2744; }
+        .tab-btn:hover:not(.active) { color: #374151; }
+
+        /* ── Logo grid ── */
+        .logo-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+          gap: 1rem;
+          padding: 1.4rem;
+        }
+        .logo-card {
+          border: 1.5px solid #e9ecf0;
+          border-radius: 12px;
+          padding: 1rem;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.75rem;
+          background: #fafbfc;
+          transition: border-color 0.18s, box-shadow 0.18s;
+        }
+        .logo-card:hover { border-color: #c8d0e0; box-shadow: 0 2px 10px rgba(26,39,68,0.07); }
+        .logo-card img {
+          height: 40px; max-width: 120px;
+          object-fit: contain;
+        }
+        .logo-card-id {
+          font-size: 0.7rem; color: #b0bbd4; font-weight: 600;
+        }
+        .logo-empty { padding: 3rem; text-align: center; color: #9ca3af; font-size: 0.9rem; }
+        .logo-skel-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+          gap: 1rem;
+          padding: 1.4rem;
+        }
+        .logo-skel-card {
+          border: 1.5px solid #e9ecf0;
+          border-radius: 12px;
+          padding: 1rem;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          height: 90px;
+          animation: pulse 1.4s infinite;
+          background: #f3f4f6;
+        }
+
+        /* ── Logo preview in modal ── */
+        .logo-upload-area {
+          border: 2px dashed #e5e7eb;
+          border-radius: 12px;
+          padding: 2rem 1rem;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.75rem;
+          cursor: pointer;
+          transition: border-color 0.18s, background 0.18s;
+          margin-bottom: 1rem;
+        }
+        .logo-upload-area:hover { border-color: #1a2744; background: #f8faff; }
+        .logo-upload-area img { height: 48px; max-width: 160px; object-fit: contain; }
+        .logo-upload-hint { font-size: 0.78rem; color: #9ca3af; text-align: center; }
+
         @media (max-width: 600px) { .panel-search { width: 100%; } th, td { padding: 0.65rem 0.85rem; } }
       `}</style>
 
       {toast && <div className={`toast toast-${toast.type}`}>{toast.msg}</div>}
 
       <div className="panel-wrap">
+        {/* Header — judul & tombol berubah tergantung tab aktif */}
         <div className="panel-header">
           <div className="panel-header-left">
-            <h1 className="panel-page-title">❝ Testimony</h1>
-            <p className="panel-page-sub">Kelola testimoni klien</p>
+            <h1 className="panel-page-title">
+              {activeTab === "testimony" ? "❝ Testimony" : "🏷️ Logo Klien"}
+            </h1>
+            <p className="panel-page-sub">
+              {activeTab === "testimony"
+                ? "Kelola testimoni klien"
+                : "Kelola logo klien yang tampil di website"}
+            </p>
           </div>
-          <button className="panel-add-btn" onClick={openAdd}>
-            + Tambah Testimony
-          </button>
+          {activeTab === "testimony" ? (
+            <button className="panel-add-btn" onClick={openAdd}>
+              + Tambah Testimony
+            </button>
+          ) : (
+            <button className="panel-add-btn" onClick={openLogoModal}>
+              + Tambah Logo
+            </button>
+          )}
         </div>
 
+        {/* Stats */}
         <div className="panel-stats">
           <div className="stat-card">
-            <span className="stat-label">Total</span>
-            <span className="stat-value">{loading ? "—" : total}</span>
+            <span className="stat-label">
+              {activeTab === "testimony" ? "Total Testimony" : "Total Logo"}
+            </span>
+            <span className="stat-value">
+              {activeTab === "testimony"
+                ? loading
+                  ? "—"
+                  : total
+                : logoLoading
+                  ? "—"
+                  : logos.length}
+            </span>
             <span className="stat-hint">item terdaftar</span>
           </div>
         </div>
 
-        <div className="panel-card">
-          <div className="panel-card-header">
-            <span className="panel-card-title">Daftar Testimony</span>
-            <input
-              className="panel-search"
-              placeholder="Cari nama / teks…"
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+        {/* Tab Navigation */}
+        <div className="panel-card" style={{ overflow: "visible" }}>
+          <div className="tab-nav">
+            <button
+              className={`tab-btn ${activeTab === "testimony" ? "active" : ""}`}
+              onClick={() => setActiveTab("testimony")}
+            >
+              ❝ Testimony
+            </button>
+            <button
+              className={`tab-btn ${activeTab === "logo" ? "active" : ""}`}
+              onClick={() => setActiveTab("logo")}
+            >
+              🏷️ Logo Klien
+            </button>
           </div>
-          <div className="panel-table-wrap">
-            {loading ? (
-              <table>
-                <thead>
-                  <tr>
-                    <th>No</th>
-                    <th>Foto</th>
-                    <th>Nama</th>
-                    <th>Testimoni</th>
-                    <th>Aksi</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[1, 2, 3].map((i) => (
-                    <tr key={i} className="skeleton-row">
-                      <td>
-                        <span className="skel" style={{ width: 20 }} />
-                      </td>
-                      <td>
-                        <span
-                          className="skel"
-                          style={{
-                            width: 40,
-                            height: 40,
-                            borderRadius: "50%",
-                            display: "inline-block",
-                          }}
-                        />
-                      </td>
-                      <td>
-                        <span className="skel" style={{ width: 120 }} />
-                      </td>
-                      <td>
-                        <span className="skel" style={{ width: 220 }} />
-                      </td>
-                      <td>
-                        <span className="skel" style={{ width: 80 }} />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : filtered.length === 0 ? (
-              <div className="empty-state">
-                <div className="empty-icon">❝</div>
-                <p>
-                  {search
-                    ? "Tidak ada hasil pencarian."
-                    : "Belum ada data Testimony."}
-                </p>
-                {!search && (
-                  <p>
-                    Klik <strong>+ Tambah Testimony</strong> untuk mulai.
-                  </p>
+
+          {/* ── Tab: Testimony ── */}
+          {activeTab === "testimony" && (
+            <>
+              <div
+                className="panel-card-header"
+                style={{ borderTop: "1px solid #f1f5f9" }}
+              >
+                <span className="panel-card-title">Daftar Testimony</span>
+                <input
+                  className="panel-search"
+                  placeholder="Cari nama / teks…"
+                  type="search"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+              <div className="panel-table-wrap">
+                {loading ? (
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>No</th>
+                        <th>Foto</th>
+                        <th>Nama</th>
+                        <th>Testimoni</th>
+                        <th>Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[1, 2, 3].map((i) => (
+                        <tr key={i} className="skeleton-row">
+                          <td>
+                            <span className="skel" style={{ width: 20 }} />
+                          </td>
+                          <td>
+                            <span
+                              className="skel"
+                              style={{
+                                width: 40,
+                                height: 40,
+                                borderRadius: "50%",
+                                display: "inline-block",
+                              }}
+                            />
+                          </td>
+                          <td>
+                            <span className="skel" style={{ width: 120 }} />
+                          </td>
+                          <td>
+                            <span className="skel" style={{ width: 220 }} />
+                          </td>
+                          <td>
+                            <span className="skel" style={{ width: 80 }} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : filtered.length === 0 ? (
+                  <div className="empty-state">
+                    <div className="empty-icon">❝</div>
+                    <p>
+                      {search
+                        ? "Tidak ada hasil pencarian."
+                        : "Belum ada data Testimony."}
+                    </p>
+                    {!search && (
+                      <p>
+                        Klik <strong>+ Tambah Testimony</strong> untuk mulai.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>No</th>
+                        <th>Foto</th>
+                        <th>Nama</th>
+                        <th>Testimoni</th>
+                        <th>Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filtered.map((row, i) => {
+                        const photo = fmtPhoto(row.profile_image);
+                        const initial = (row.name || "?")
+                          .charAt(0)
+                          .toUpperCase();
+                        return (
+                          <tr key={row.id}>
+                            <td
+                              style={{ color: "#9ca3af", fontSize: "0.8rem" }}
+                            >
+                              {i + 1}
+                            </td>
+                            <td>
+                              {photo ? (
+                                <img
+                                  src={photo}
+                                  alt={row.name}
+                                  className="td-avatar"
+                                />
+                              ) : (
+                                <div className="td-avatar-placeholder">
+                                  {initial}
+                                </div>
+                              )}
+                            </td>
+                            <td
+                              style={{
+                                fontWeight: 600,
+                                color: "#1a2744",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {row.name}
+                            </td>
+                            <td>
+                              <div className="td-quote">
+                                "{row.testimonial}"
+                              </div>
+                            </td>
+                            <td>
+                              <div style={{ display: "flex", gap: "0.4rem" }}>
+                                <button
+                                  className="action-btn"
+                                  onClick={() => openEdit(row)}
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  className="action-btn del"
+                                  onClick={() => handleDelete(row.id)}
+                                >
+                                  Hapus
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 )}
               </div>
-            ) : (
-              <table>
-                <thead>
-                  <tr>
-                    <th>No</th>
-                    <th>Foto</th>
-                    <th>Nama</th>
-                    <th>Testimoni</th>
-                    <th>Aksi</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((row, i) => {
-                    const photo = fmtPhoto(row.profile_image);
-                    const initial = (row.name || "?").charAt(0).toUpperCase();
+            </>
+          )}
+
+          {/* ── Tab: Logo ── */}
+          {activeTab === "logo" && (
+            <>
+              <div
+                className="panel-card-header"
+                style={{ borderTop: "1px solid #f1f5f9" }}
+              >
+                <span className="panel-card-title">Daftar Logo Klien</span>
+                <span style={{ fontSize: "0.78rem", color: "#9ca3af" }}>
+                  Logo ditampilkan sebagai ticker bergerak di website
+                </span>
+              </div>
+              {logoLoading ? (
+                <div className="logo-skel-grid">
+                  {[1, 2, 3, 4, 5, 6].map((i) => (
+                    <div key={i} className="logo-skel-card" />
+                  ))}
+                </div>
+              ) : logos.length === 0 ? (
+                <div className="logo-empty">
+                  <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>
+                    🏷️
+                  </div>
+                  <p>Belum ada logo yang ditambahkan.</p>
+                  <p>
+                    Klik <strong>+ Tambah Logo</strong> untuk mulai.
+                  </p>
+                </div>
+              ) : (
+                <div className="logo-grid">
+                  {logos.map((logo, i) => {
+                    const src = fmtPhoto(logo.image_url);
                     return (
-                      <tr key={row.id}>
-                        <td style={{ color: "#9ca3af", fontSize: "0.8rem" }}>
-                          {i + 1}
-                        </td>
-                        <td>
-                          {photo ? (
-                            <img
-                              src={photo}
-                              alt={row.name}
-                              className="td-avatar"
-                            />
-                          ) : (
-                            <div className="td-avatar-placeholder">
-                              {initial}
-                            </div>
-                          )}
-                        </td>
-                        <td
-                          style={{
-                            fontWeight: 600,
-                            color: "#1a2744",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {row.name}
-                        </td>
-                        <td>
-                          <div className="td-quote">"{row.testimonial}"</div>
-                        </td>
-                        <td>
-                          <div style={{ display: "flex", gap: "0.4rem" }}>
-                            <button
-                              className="action-btn"
-                              onClick={() => openEdit(row)}
-                            >
-                              Edit
-                            </button>
-                            <button
-                              className="action-btn del"
-                              onClick={() => handleDelete(row.id)}
-                            >
-                              Hapus
-                            </button>
+                      <div key={logo.id} className="logo-card">
+                        {src ? (
+                          <img src={src} alt={`Logo ${i + 1}`} />
+                        ) : (
+                          <div
+                            style={{
+                              height: 40,
+                              display: "flex",
+                              alignItems: "center",
+                              color: "#b0bbd4",
+                              fontSize: "0.8rem",
+                            }}
+                          >
+                            No image
                           </div>
-                        </td>
-                      </tr>
+                        )}
+                        <span className="logo-card-id">ID #{logo.id}</span>
+                        <button
+                          className="action-btn del"
+                          onClick={() => handleLogoDelete(logo.id)}
+                        >
+                          Hapus
+                        </button>
+                      </div>
                     );
                   })}
-                </tbody>
-              </table>
-            )}
-          </div>
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
 
+      {/* ── Modal Testimony Add/Edit ── */}
       {modal && (
         <Modal
           title={modal === "add" ? "Tambah Testimony" : "Edit Testimony"}
@@ -526,47 +804,164 @@ export const TestimonyPanel = ({ onDataChange }) => {
           </div>
         </Modal>
       )}
+
+      {/* ── Modal Logo Add ── */}
+      {logoModal && (
+        <Modal title="Tambah Logo Klien" onClose={() => setLogoModal(false)}>
+          <div
+            className="logo-upload-area"
+            onClick={() => logoFileRef.current.click()}
+          >
+            {logoPreview ? (
+              <img src={logoPreview} alt="preview logo" />
+            ) : (
+              <>
+                <span style={{ fontSize: "2rem" }}>🖼️</span>
+                <span
+                  style={{
+                    fontSize: "0.85rem",
+                    fontWeight: 600,
+                    color: "#374151",
+                  }}
+                >
+                  Klik untuk pilih file logo
+                </span>
+              </>
+            )}
+            <span className="logo-upload-hint">
+              PNG / SVG / WebP — rekomendasi rasio landscape, background
+              transparan
+            </span>
+          </div>
+          <input
+            ref={logoFileRef}
+            type="file"
+            accept="image/*"
+            style={{ display: "none" }}
+            onChange={handleLogoFile}
+          />
+
+          <div className="modal-actions">
+            <button className="btn-cancel" onClick={() => setLogoModal(false)}>
+              Batal
+            </button>
+            <button
+              className="btn-save"
+              onClick={handleLogoSave}
+              disabled={logoSaving}
+            >
+              {logoSaving ? "Menyimpan…" : "Simpan"}
+            </button>
+          </div>
+        </Modal>
+      )}
     </>
   );
 };
 
-// ─── Logos Static Data ─────────────────────────────────────────────────────
-const LOGOS = [
-  {
-    id: 1,
-    name: "Vista Land Group",
-    src: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8b/Vista_Land_%26_Lifescapes_logo.svg/320px-Vista_Land_%26_Lifescapes_logo.svg.png",
-  },
-  {
-    id: 2,
-    name: "HMNS",
-    src: "https://placehold.co/120x40/0a0a0a/ffffff?text=HMNS&font=montserrat",
-  },
-  {
-    id: 3,
-    name: "Hotto",
-    src: "https://placehold.co/100x40/ff6b35/ffffff?text=Hotto&font=montserrat",
-  },
-  {
-    id: 4,
-    name: "O.TWO.O Cosmetics",
-    src: "https://placehold.co/130x40/c8a96e/ffffff?text=O.TWO.O&font=montserrat",
-  },
-  {
-    id: 5,
-    name: "Dompet Dhuafa",
-    src: "https://placehold.co/120x40/2d7a2d/ffffff?text=Dompet+Dhuafa&font=montserrat",
-  },
-  {
-    id: 6,
-    name: "Syngenta",
-    src: "https://placehold.co/110x40/0066cc/ffffff?text=syngenta&font=montserrat",
-  },
-];
+// ─── Logo Marquee ──────────────────────────────────────────────────────────
+function LogoMarquee({ logos }) {
+  // Duplikasi item agar marquee seamless
+  const items = logos.length > 0 ? [...logos, ...logos] : [];
+
+  if (logos.length === 0) return null;
+
+  // Kecepatan: semakin banyak logo, durasi makin lama agar tetap nyaman
+  const duration = Math.max(12, logos.length * 3);
+
+  return (
+    <>
+      <style>{`
+        .marquee-outer {
+          overflow: hidden;
+          width: 100%;
+          position: relative;
+        }
+        /* Fade mask kiri-kanan */
+        .marquee-outer::before,
+        .marquee-outer::after {
+          content: '';
+          position: absolute;
+          top: 0; bottom: 0;
+          width: 80px;
+          z-index: 2;
+          pointer-events: none;
+        }
+        .marquee-outer::before {
+          left: 0;
+          background: linear-gradient(to right, #ffffff, transparent);
+        }
+        .marquee-outer::after {
+          right: 0;
+          background: linear-gradient(to left, #ffffff, transparent);
+        }
+        .marquee-track {
+          display: flex;
+          align-items: center;
+          gap: 0;
+          width: max-content;
+          animation: marqueeScroll var(--marquee-dur, 20s) linear infinite;
+        }
+        .marquee-track:hover {
+          animation-play-state: paused;
+        }
+        @keyframes marqueeScroll {
+          0%   { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        .marquee-item {
+          padding: 0 48px;
+          display: flex;
+          align-items: center;
+          flex-shrink: 0;
+        }
+        .marquee-logo {
+          height: 36px;
+          max-width: 120px;
+          object-fit: contain;
+          filter: grayscale(1) opacity(0.55);
+          transition: filter 0.25s;
+          display: block;
+        }
+        .marquee-logo:hover {
+          filter: grayscale(0) opacity(1);
+        }
+        @media (max-width: 768px) {
+          .marquee-logo { height: 28px; max-width: 90px; }
+          .marquee-item { padding: 0 32px; }
+          .marquee-outer::before, .marquee-outer::after { width: 48px; }
+        }
+        @media (max-width: 480px) {
+          .marquee-logo { height: 24px; max-width: 76px; }
+          .marquee-item { padding: 0 24px; }
+        }
+      `}</style>
+      <div className="marquee-outer">
+        <div
+          className="marquee-track"
+          style={{ "--marquee-dur": `${duration}s` }}
+        >
+          {items.map((logo, idx) => {
+            const src = fmtPhoto(logo.image_url);
+            if (!src) return null;
+            return (
+              <div key={`${logo.id}-${idx}`} className="marquee-item">
+                <img
+                  src={src}
+                  alt={`Client logo ${logo.id}`}
+                  className="marquee-logo"
+                />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </>
+  );
+}
 
 // ─── Testimony Carousel ────────────────────────────────────────────────────
 function TestimonyCarousel({ testimonials }) {
-  const CARDS_PER_VIEW_MAP = { xl: 4, lg: 3, md: 2, sm: 1 };
   const trackRef = useRef(null);
   const [cardsPerView, setCardsPerView] = useState(4);
   const [current, setCurrent] = useState(0);
@@ -578,7 +973,6 @@ function TestimonyCarousel({ testimonials }) {
   const total = testimonials.length;
   const maxIndex = Math.max(0, total - cardsPerView);
 
-  // Responsive cards per view
   useEffect(() => {
     const update = () => {
       const w = window.innerWidth;
@@ -592,12 +986,10 @@ function TestimonyCarousel({ testimonials }) {
     return () => window.removeEventListener("resize", update);
   }, []);
 
-  // Clamp current when cardsPerView changes
   useEffect(() => {
     setCurrent((c) => Math.min(c, Math.max(0, total - cardsPerView)));
   }, [cardsPerView, total]);
 
-  // Auto-slide only if more cards than view
   useEffect(() => {
     if (total <= cardsPerView) return;
     autoTimer.current = setInterval(() => {
@@ -621,7 +1013,6 @@ function TestimonyCarousel({ testimonials }) {
     resetTimer();
   };
 
-  // Drag / swipe handlers
   const onDragStart = (clientX) => {
     setIsDragging(true);
     dragStartX.current = clientX;
@@ -641,7 +1032,6 @@ function TestimonyCarousel({ testimonials }) {
     else resetTimer();
   };
 
-  // Card width as percentage of track
   const cardWidthPct = 100 / cardsPerView;
   const translateX = -(current * cardWidthPct);
 
@@ -654,7 +1044,6 @@ function TestimonyCarousel({ testimonials }) {
         userSelect: "none",
       }}
     >
-      {/* Slide track */}
       <div
         ref={trackRef}
         style={{
@@ -701,7 +1090,6 @@ function TestimonyCarousel({ testimonials }) {
         })}
       </div>
 
-      {/* Dot indicators — only show when sliding needed */}
       {total > cardsPerView && (
         <div
           style={{
@@ -731,7 +1119,6 @@ function TestimonyCarousel({ testimonials }) {
         </div>
       )}
 
-      {/* Prev / Next arrows — only show when needed */}
       {total > cardsPerView && (
         <>
           <button
@@ -799,6 +1186,7 @@ function TestimonyCarousel({ testimonials }) {
 // ─── Main Public Component (TestimonySection) ──────────────────────────────
 export default function TestimonySection() {
   const [testimonials, setTestimonials] = useState([]);
+  const [logos, setLogos] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const loadPublicTestimonials = async () => {
@@ -813,8 +1201,19 @@ export default function TestimonySection() {
     }
   };
 
+  const loadPublicLogos = async () => {
+    try {
+      const res = await fetch(`${API}/api/load-logo`, { method: "POST" });
+      const json = await res.json();
+      setLogos(Array.isArray(json) ? json : []);
+    } catch (err) {
+      console.error("Gagal memuat logo publik:", err);
+    }
+  };
+
   useEffect(() => {
     loadPublicTestimonials();
+    loadPublicLogos();
   }, []);
 
   return (
@@ -848,25 +1247,24 @@ export default function TestimonySection() {
         .card-avatar-placeholder { width: 56px; height: 56px; border-radius: 50%; background: #f0f3fa; display: flex; align-items: center; justify-content: center; color: #b0bbd4; font-size: 22px; font-weight: 800; flex-shrink: 0; }
         .card-quote { font-size: 13px; color: #3d4f72; font-style: italic; line-height: 1.7; flex: 1; margin: 0; }
         .card-name { font-size: 13px; font-weight: 700; color: #0d1b4b; margin: 0; }
-        .clients-strip { background: #ffffff; padding: 32px 24px; box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; }
-        .clients-row { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 32px 48px; max-width: 1160px; margin: 0 auto; }
-        .client-logo { height: 36px; max-width: 120px; object-fit: contain; filter: grayscale(1) opacity(0.6); transition: filter 0.25s; }
-        .client-logo:hover { filter: grayscale(0) opacity(1); }
+        .clients-strip {
+          background: #ffffff;
+          padding: 32px 0;
+          box-sizing: border-box;
+          font-family: 'Plus Jakarta Sans', sans-serif;
+          overflow: hidden;
+        }
         .section-skeleton { animation: skelPulse 1.4s infinite; background: #f3f4f6; border-radius: 12px; }
         @keyframes skelPulse { 0%,100% { opacity:1 } 50% { opacity:0.4 } }
 
         @media (max-width: 768px) {
           .testimony-section { padding: 40px 24px 40px; }
           .testimony-header { margin-bottom: 32px; }
-          .clients-strip { padding: 28px 16px; }
-          .clients-row { gap: 20px 32px; }
-          .client-logo { height: 30px; max-width: 100px; }
+          .clients-strip { padding: 28px 0; }
         }
         @media (max-width: 480px) {
           .testimony-section { padding: 32px 14px 32px; }
-          .clients-strip { padding: 20px 14px; }
-          .clients-row { gap: 16px 20px; }
-          .client-logo { height: 26px; max-width: 85px; }
+          .clients-strip { padding: 20px 0; }
         }
       `}</style>
 
@@ -884,7 +1282,6 @@ export default function TestimonySection() {
         </div>
 
         {loading ? (
-          // Skeleton grid saat loading — tetap 4 kolom, tidak overflow
           <div style={{ display: "flex", gap: 20 }}>
             {[1, 2, 3, 4].map((i) => (
               <div key={i} style={{ flex: "1 0 0", minWidth: 0 }}>
@@ -920,18 +1317,12 @@ export default function TestimonySection() {
         )}
       </section>
 
-      <div className="clients-strip">
-        <div className="clients-row">
-          {LOGOS.map((logo) => (
-            <img
-              key={logo.id}
-              src={logo.src}
-              alt={logo.name}
-              className="client-logo"
-            />
-          ))}
+      {/* ── Clients strip — infinite marquee ── */}
+      {logos.length > 0 && (
+        <div className="clients-strip">
+          <LogoMarquee logos={logos} />
         </div>
-      </div>
+      )}
     </>
   );
 }

@@ -115,6 +115,7 @@ function Modal({ title, onClose, children }) {
 
 // ─── Main Panel ────────────────────────────────────────────────────────────
 const TestimonyPanel = () => {
+  // ── Testimony state ──
   const [data, setData] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -123,14 +124,25 @@ const TestimonyPanel = () => {
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState(null);
 
-  // form state
   const [fName, setFName] = useState("");
   const [fText, setFText] = useState("");
   const [fFile, setFFile] = useState(null);
   const [fPreview, setFPreview] = useState(null);
   const fileRef = useRef();
 
-  // ── fetch ──
+  // ── Logo state ──
+  const [logos, setLogos] = useState([]);
+  const [logoLoading, setLogoLoading] = useState(true);
+  const [logoModal, setLogoModal] = useState(false);
+  const [logoFile, setLogoFile] = useState(null);
+  const [logoPreview, setLogoPreview] = useState(null);
+  const [logoSaving, setLogoSaving] = useState(false);
+  const logoFileRef = useRef();
+
+  // ── Active tab ──
+  const [activeTab, setActiveTab] = useState("testimony"); // "testimony" | "logo"
+
+  // ── Fetch testimony ──
   const fetchData = async () => {
     setLoading(true);
     try {
@@ -144,17 +156,32 @@ const TestimonyPanel = () => {
     }
   };
 
+  // ── Fetch logos ──
+  const fetchLogos = async () => {
+    setLogoLoading(true);
+    try {
+      const res = await fetch(`${API}/api/load-logo`, { method: "POST" });
+      const json = await res.json();
+      setLogos(Array.isArray(json) ? json : []);
+    } catch {
+      showToast("Gagal memuat logo.", "error");
+    } finally {
+      setLogoLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchData();
+    fetchLogos();
   }, []);
 
-  // ── toast ──
+  // ── Toast ──
   const showToast = (msg, type = "success") => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
   };
 
-  // ── open modal ──
+  // ── Testimony handlers ──
   const openAdd = () => {
     setSelected(null);
     setFName("");
@@ -171,16 +198,12 @@ const TestimonyPanel = () => {
     setFPreview(fmtPhoto(row.profile_image));
     setModal("edit");
   };
-
-  // ── file change ──
   const handleFile = (e) => {
     const f = e.target.files[0];
     if (!f) return;
     setFFile(f);
     setFPreview(URL.createObjectURL(f));
   };
-
-  // ── save ──
   const handleSave = async () => {
     if (!fName.trim() || !fText.trim()) {
       showToast("Nama dan testimoni wajib diisi.", "error");
@@ -191,7 +214,6 @@ const TestimonyPanel = () => {
     fd.append("name", fName.trim());
     fd.append("testimonial", fText.trim());
     if (fFile) fd.append("image", fFile);
-
     try {
       const url =
         modal === "add"
@@ -213,8 +235,6 @@ const TestimonyPanel = () => {
       setSaving(false);
     }
   };
-
-  // ── delete ──
   const handleDelete = async (id) => {
     if (!window.confirm("Yakin hapus testimony ini?")) return;
     try {
@@ -229,13 +249,61 @@ const TestimonyPanel = () => {
     }
   };
 
-  // ── filtered ──
+  // ── Logo handlers ──
+  const handleLogoFile = (e) => {
+    const f = e.target.files[0];
+    if (!f) return;
+    setLogoFile(f);
+    setLogoPreview(URL.createObjectURL(f));
+  };
+  const openLogoModal = () => {
+    setLogoFile(null);
+    setLogoPreview(null);
+    setLogoModal(true);
+  };
+  const handleLogoSave = async () => {
+    if (!logoFile) {
+      showToast("File logo harus dipilih.", "error");
+      return;
+    }
+    setLogoSaving(true);
+    const fd = new FormData();
+    fd.append("logo", logoFile);
+    try {
+      const res = await fetch(`${API}/api/create-logo`, {
+        method: "POST",
+        body: fd,
+      });
+      if (!res.ok) throw new Error();
+      showToast("Logo berhasil ditambahkan!");
+      setLogoModal(false);
+      fetchLogos();
+    } catch {
+      showToast("Gagal menyimpan logo.", "error");
+    } finally {
+      setLogoSaving(false);
+    }
+  };
+  const handleLogoDelete = async (id) => {
+    if (!window.confirm("Yakin hapus logo ini?")) return;
+    try {
+      const res = await fetch(`${API}/api/delete-logo/${id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error();
+      showToast("Logo berhasil dihapus.");
+      fetchLogos();
+    } catch {
+      showToast("Gagal menghapus logo.", "error");
+    }
+  };
+
+  // ── Filtered ──
   const filtered = data.filter(
     (d) =>
       d.name?.toLowerCase().includes(search.toLowerCase()) ||
       d.testimonial?.toLowerCase().includes(search.toLowerCase()),
   );
-
   const total = data.length;
 
   return (
@@ -357,9 +425,7 @@ const TestimonyPanel = () => {
         .empty-icon { font-size: 2rem; margin-bottom: 0.5rem; }
 
         .skeleton-row td { animation: pulse 1.4s infinite; }
-        @keyframes pulse {
-          0%,100% { opacity:1 } 50% { opacity:0.4 }
-        }
+        @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:0.4 } }
         .skel {
           display: inline-block; background: #e9ecf0;
           border-radius: 6px; height: 14px;
@@ -378,6 +444,82 @@ const TestimonyPanel = () => {
         .toast-success { background: #1a2744; color: #fff; }
         .toast-error   { background: #ef4444; color: #fff; }
 
+        /* Tab navigation */
+        .tab-nav {
+          display: flex; gap: 0;
+          border-bottom: 1.5px solid #e9ecf0;
+        }
+        .tab-btn {
+          padding: 0.7rem 1.4rem;
+          font-family: 'Plus Jakarta Sans', sans-serif;
+          font-size: 0.85rem; font-weight: 600;
+          border: none; background: none; cursor: pointer;
+          color: #9ca3af;
+          border-bottom: 2.5px solid transparent;
+          margin-bottom: -1.5px;
+          transition: color 0.18s, border-color 0.18s;
+        }
+        .tab-btn.active { color: #1a2744; border-bottom-color: #1a2744; }
+        .tab-btn:hover:not(.active) { color: #374151; }
+
+        /* Logo grid */
+        .logo-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+          gap: 1rem;
+          padding: 1.4rem;
+        }
+        .logo-card {
+          border: 1.5px solid #e9ecf0;
+          border-radius: 12px;
+          padding: 1rem;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.75rem;
+          background: #fafbfc;
+          transition: border-color 0.18s, box-shadow 0.18s;
+        }
+        .logo-card:hover { border-color: #c8d0e0; box-shadow: 0 2px 10px rgba(26,39,68,0.07); }
+        .logo-card img {
+          height: 40px; max-width: 120px;
+          object-fit: contain;
+        }
+        .logo-card-id {
+          font-size: 0.7rem; color: #b0bbd4; font-weight: 600;
+        }
+        .logo-empty { padding: 3rem; text-align: center; color: #9ca3af; font-size: 0.9rem; }
+        .logo-skel-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+          gap: 1rem;
+          padding: 1.4rem;
+        }
+        .logo-skel-card {
+          border: 1.5px solid #e9ecf0;
+          border-radius: 12px;
+          height: 90px;
+          animation: pulse 1.4s infinite;
+          background: #f3f4f6;
+        }
+
+        /* Logo upload area in modal */
+        .logo-upload-area {
+          border: 2px dashed #e5e7eb;
+          border-radius: 12px;
+          padding: 2rem 1rem;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 0.75rem;
+          cursor: pointer;
+          transition: border-color 0.18s, background 0.18s;
+          margin-bottom: 1rem;
+        }
+        .logo-upload-area:hover { border-color: #1a2744; background: #f8faff; }
+        .logo-upload-area img { height: 48px; max-width: 160px; object-fit: contain; }
+        .logo-upload-hint { font-size: 0.78rem; color: #9ca3af; text-align: center; }
+
         @media (max-width: 600px) {
           .panel-search { width: 100%; }
           th, td { padding: 0.65rem 0.85rem; }
@@ -391,169 +533,283 @@ const TestimonyPanel = () => {
         {/* Header */}
         <div className="panel-header">
           <div className="panel-header-left">
-            <h1 className="panel-page-title">❝ Testimony</h1>
-            <p className="panel-page-sub">Kelola testimoni klien</p>
+            <h1 className="panel-page-title">
+              {activeTab === "testimony" ? "❝ Testimony" : "🏷️ Logo Klien"}
+            </h1>
+            <p className="panel-page-sub">
+              {activeTab === "testimony"
+                ? "Kelola testimoni klien"
+                : "Kelola logo klien yang tampil di website"}
+            </p>
           </div>
-          <button className="panel-add-btn" onClick={openAdd}>
-            + Tambah Testimony
-          </button>
+          {activeTab === "testimony" ? (
+            <button className="panel-add-btn" onClick={openAdd}>
+              + Tambah Testimony
+            </button>
+          ) : (
+            <button className="panel-add-btn" onClick={openLogoModal}>
+              + Tambah Logo
+            </button>
+          )}
         </div>
 
         {/* Stats */}
         <div className="panel-stats">
           <div className="stat-card">
-            <span className="stat-label">Total</span>
-            <span className="stat-value">{loading ? "—" : total}</span>
+            <span className="stat-label">
+              {activeTab === "testimony" ? "Total Testimony" : "Total Logo"}
+            </span>
+            <span className="stat-value">
+              {activeTab === "testimony"
+                ? loading
+                  ? "—"
+                  : total
+                : logoLoading
+                  ? "—"
+                  : logos.length}
+            </span>
             <span className="stat-hint">item terdaftar</span>
           </div>
         </div>
 
-        {/* Table */}
-        <div className="panel-card">
-          <div className="panel-card-header">
-            <span className="panel-card-title">Daftar Testimony</span>
-            <input
-              className="panel-search"
-              placeholder="Cari nama / teks…"
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+        {/* Tab card */}
+        <div className="panel-card" style={{ overflow: "visible" }}>
+          <div className="tab-nav">
+            <button
+              className={`tab-btn ${activeTab === "testimony" ? "active" : ""}`}
+              onClick={() => setActiveTab("testimony")}
+            >
+              ❝ Testimony
+            </button>
+            <button
+              className={`tab-btn ${activeTab === "logo" ? "active" : ""}`}
+              onClick={() => setActiveTab("logo")}
+            >
+              🏷️ Logo Klien
+            </button>
           </div>
-          <div className="panel-table-wrap">
-            {loading ? (
-              <table>
-                <thead>
-                  <tr>
-                    <th>No</th>
-                    <th>Foto</th>
-                    <th>Nama</th>
-                    <th>Testimoni</th>
-                    <th>Aksi</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[1, 2, 3].map((i) => (
-                    <tr key={i} className="skeleton-row">
-                      <td>
-                        <span className="skel" style={{ width: 20 }} />
-                      </td>
-                      <td>
-                        <span
-                          className="skel"
-                          style={{
-                            width: 40,
-                            height: 40,
-                            borderRadius: "50%",
-                            display: "inline-block",
-                          }}
-                        />
-                      </td>
-                      <td>
-                        <span className="skel" style={{ width: 120 }} />
-                      </td>
-                      <td>
-                        <span className="skel" style={{ width: 220 }} />
-                      </td>
-                      <td>
-                        <span className="skel" style={{ width: 80 }} />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : filtered.length === 0 ? (
-              <div className="empty-state">
-                <div className="empty-icon">❝</div>
-                <p>
-                  {search
-                    ? "Tidak ada hasil pencarian."
-                    : "Belum ada data Testimony."}
-                </p>
-                {!search && (
-                  <p>
-                    Klik <strong>+ Tambah Testimony</strong> untuk mulai.
-                  </p>
+
+          {/* ── Testimony tab ── */}
+          {activeTab === "testimony" && (
+            <>
+              <div
+                className="panel-card-header"
+                style={{ borderTop: "1px solid #f1f5f9" }}
+              >
+                <span className="panel-card-title">Daftar Testimony</span>
+                <input
+                  className="panel-search"
+                  placeholder="Cari nama / teks…"
+                  type="search"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+              <div className="panel-table-wrap">
+                {loading ? (
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>No</th>
+                        <th>Foto</th>
+                        <th>Nama</th>
+                        <th>Testimoni</th>
+                        <th>Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[1, 2, 3].map((i) => (
+                        <tr key={i} className="skeleton-row">
+                          <td>
+                            <span className="skel" style={{ width: 20 }} />
+                          </td>
+                          <td>
+                            <span
+                              className="skel"
+                              style={{
+                                width: 40,
+                                height: 40,
+                                borderRadius: "50%",
+                                display: "inline-block",
+                              }}
+                            />
+                          </td>
+                          <td>
+                            <span className="skel" style={{ width: 120 }} />
+                          </td>
+                          <td>
+                            <span className="skel" style={{ width: 220 }} />
+                          </td>
+                          <td>
+                            <span className="skel" style={{ width: 80 }} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : filtered.length === 0 ? (
+                  <div className="empty-state">
+                    <div className="empty-icon">❝</div>
+                    <p>
+                      {search
+                        ? "Tidak ada hasil pencarian."
+                        : "Belum ada data Testimony."}
+                    </p>
+                    {!search && (
+                      <p>
+                        Klik <strong>+ Tambah Testimony</strong> untuk mulai.
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>No</th>
+                        <th>Foto</th>
+                        <th>Nama</th>
+                        <th>Testimoni</th>
+                        <th>Aksi</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filtered.map((row, i) => {
+                        const photo = fmtPhoto(row.profile_image);
+                        const initial = (row.name || "?")
+                          .charAt(0)
+                          .toUpperCase();
+                        return (
+                          <tr key={row.id}>
+                            <td
+                              style={{ color: "#9ca3af", fontSize: "0.8rem" }}
+                            >
+                              {i + 1}
+                            </td>
+                            <td>
+                              {photo ? (
+                                <img
+                                  src={photo}
+                                  alt={row.name}
+                                  className="td-avatar"
+                                />
+                              ) : (
+                                <div className="td-avatar-placeholder">
+                                  {initial}
+                                </div>
+                              )}
+                            </td>
+                            <td
+                              style={{
+                                fontWeight: 600,
+                                color: "#1a2744",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {row.name}
+                            </td>
+                            <td>
+                              <div className="td-quote">
+                                "{row.testimonial}"
+                              </div>
+                            </td>
+                            <td>
+                              <div style={{ display: "flex", gap: "0.4rem" }}>
+                                <button
+                                  className="action-btn"
+                                  onClick={() => openEdit(row)}
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  className="action-btn del"
+                                  onClick={() => handleDelete(row.id)}
+                                >
+                                  Hapus
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 )}
               </div>
-            ) : (
-              <table>
-                <thead>
-                  <tr>
-                    <th>No</th>
-                    <th>Foto</th>
-                    <th>Nama</th>
-                    <th>Testimoni</th>
-                    <th>Aksi</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((row, i) => {
-                    const photo = fmtPhoto(row.profile_image);
-                    const initial = (row.name || "?").charAt(0).toUpperCase();
+            </>
+          )}
+
+          {/* ── Logo tab ── */}
+          {activeTab === "logo" && (
+            <>
+              <div
+                className="panel-card-header"
+                style={{ borderTop: "1px solid #f1f5f9" }}
+              >
+                <span className="panel-card-title">Daftar Logo Klien</span>
+                <span style={{ fontSize: "0.78rem", color: "#9ca3af" }}>
+                  Logo ditampilkan sebagai ticker bergerak di website
+                </span>
+              </div>
+              {logoLoading ? (
+                <div className="logo-skel-grid">
+                  {[1, 2, 3, 4, 5, 6].map((i) => (
+                    <div key={i} className="logo-skel-card" />
+                  ))}
+                </div>
+              ) : logos.length === 0 ? (
+                <div className="logo-empty">
+                  <div style={{ fontSize: "2rem", marginBottom: "0.5rem" }}>
+                    🏷️
+                  </div>
+                  <p>Belum ada logo yang ditambahkan.</p>
+                  <p>
+                    Klik <strong>+ Tambah Logo</strong> untuk mulai.
+                  </p>
+                </div>
+              ) : (
+                <div className="logo-grid">
+                  {logos.map((logo, i) => {
+                    const src = fmtPhoto(logo.image_url);
                     return (
-                      <tr key={row.id}>
-                        <td style={{ color: "#9ca3af", fontSize: "0.8rem" }}>
-                          {i + 1}
-                        </td>
-                        <td>
-                          {photo ? (
-                            <img
-                              src={photo}
-                              alt={row.name}
-                              className="td-avatar"
-                            />
-                          ) : (
-                            <div className="td-avatar-placeholder">
-                              {initial}
-                            </div>
-                          )}
-                        </td>
-                        <td
-                          style={{
-                            fontWeight: 600,
-                            color: "#1a2744",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {row.name}
-                        </td>
-                        <td>
-                          <div className="td-quote">"{row.testimonial}"</div>
-                        </td>
-                        <td>
-                          <div style={{ display: "flex", gap: "0.4rem" }}>
-                            <button
-                              className="action-btn"
-                              onClick={() => openEdit(row)}
-                            >
-                              Edit
-                            </button>
-                            <button
-                              className="action-btn del"
-                              onClick={() => handleDelete(row.id)}
-                            >
-                              Hapus
-                            </button>
+                      <div key={logo.id} className="logo-card">
+                        {src ? (
+                          <img src={src} alt={`Logo ${i + 1}`} />
+                        ) : (
+                          <div
+                            style={{
+                              height: 40,
+                              display: "flex",
+                              alignItems: "center",
+                              color: "#b0bbd4",
+                              fontSize: "0.8rem",
+                            }}
+                          >
+                            No image
                           </div>
-                        </td>
-                      </tr>
+                        )}
+                        <span className="logo-card-id">ID #{logo.id}</span>
+                        <button
+                          className="action-btn del"
+                          onClick={() => handleLogoDelete(logo.id)}
+                        >
+                          Hapus
+                        </button>
+                      </div>
                     );
                   })}
-                </tbody>
-              </table>
-            )}
-          </div>
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
 
-      {/* Modal Add / Edit */}
+      {/* ── Modal Testimony Add/Edit ── */}
       {modal && (
         <Modal
           title={modal === "add" ? "Tambah Testimony" : "Edit Testimony"}
           onClose={() => setModal(null)}
         >
-          {/* Preview foto */}
           <div
             style={{
               display: "flex",
@@ -641,6 +897,57 @@ const TestimonyPanel = () => {
             </button>
             <button className="btn-save" onClick={handleSave} disabled={saving}>
               {saving ? "Menyimpan…" : "Simpan"}
+            </button>
+          </div>
+        </Modal>
+      )}
+
+      {/* ── Modal Logo Add ── */}
+      {logoModal && (
+        <Modal title="Tambah Logo Klien" onClose={() => setLogoModal(false)}>
+          <div
+            className="logo-upload-area"
+            onClick={() => logoFileRef.current.click()}
+          >
+            {logoPreview ? (
+              <img src={logoPreview} alt="preview logo" />
+            ) : (
+              <>
+                <span style={{ fontSize: "2rem" }}>🖼️</span>
+                <span
+                  style={{
+                    fontSize: "0.85rem",
+                    fontWeight: 600,
+                    color: "#374151",
+                  }}
+                >
+                  Klik untuk pilih file logo
+                </span>
+              </>
+            )}
+            <span className="logo-upload-hint">
+              PNG / SVG / WebP — rekomendasi rasio landscape, background
+              transparan
+            </span>
+          </div>
+          <input
+            ref={logoFileRef}
+            type="file"
+            accept="image/*"
+            style={{ display: "none" }}
+            onChange={handleLogoFile}
+          />
+
+          <div className="modal-actions">
+            <button className="btn-cancel" onClick={() => setLogoModal(false)}>
+              Batal
+            </button>
+            <button
+              className="btn-save"
+              onClick={handleLogoSave}
+              disabled={logoSaving}
+            >
+              {logoSaving ? "Menyimpan…" : "Simpan"}
             </button>
           </div>
         </Modal>
