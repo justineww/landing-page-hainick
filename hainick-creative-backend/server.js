@@ -220,6 +220,25 @@ app.post("/api/load-logo", (req, res) => {
   });
 });
 
+
+app.post("/api/load-official-talent", (req, res) => {
+  db.query("SELECT * FROM official_talent", (err, result) => {
+    if (err)
+      return res.status(500).json({ error: "Gagal mengambil data official talent" });
+    res.status(200).json(result);
+  });
+});
+
+
+app.post("/api/load-official-talent-desc/:id", (req, res) => {
+  const { id } = req.params;
+  db.query("SELECT * FROM official_talent_desc WHERE id = ?", [id], (err, result) => {
+    if (err)
+      return res.status(500).json({ error: "Gagal mengambil data official talent" });
+    res.status(200).json(result);
+  });
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 // CREATE (POST)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -496,6 +515,38 @@ app.post("/api/create-logo", upload.single("logo"), async (req, res) => {
     },
   );
 });
+
+
+app.post("/api/create-official-talent", upload.single("image"), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: "Gambar harus diunggah" });
+  const image_url = await convertToWebp(req.file.path);
+  db.query(
+    "INSERT INTO official_talent (image_url) VALUES (?)",
+    [image_url],
+    (err, result) => {
+      if (err) return res.status(500).json({ error: "Gagal menambahkan gambar" });
+      res
+        .status(201)
+        .json({ message: "Gambar berhasil ditambahkan", id: result.insertId });
+    },
+  );
+});
+
+app.post("/api/create-official-talent-desc", (req, res) => {
+  const { image_url, nama, bio, followers_ig, followers_tiktok, followers_twitter, tinggi, berat, umur } = req.body;
+
+  db.query(
+    "INSERT INTO official_talent_desc (image_url, nama, bio, followers_ig, followers_tiktok, followers_twitter, tinggi, berat, umur) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    [image_url, nama, bio, followers_ig, followers_tiktok, followers_twitter, tinggi, berat, umur],
+    (err, result) => {
+      if (err) return res.status(500).json({ error: "Gagal menambahkan deskripsi" });
+      res
+        .status(201)
+        .json({ message: "Deskripsi Talent berhasil ditambahkan", id: result.insertId });
+      },
+    );
+  }
+);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // UPDATE (PUT)
@@ -915,6 +966,139 @@ app.put("/api/update-logo/:id", upload.single("logo"), async (req, res) => {
   );
 });
 
+app.put("/api/update-official-talent/:id", upload.single("image"), async (req, res) => {
+  const id = req.params.id;
+  if (!req.file) return res.status(400).json({ error: "Image harus diunggah" });
+  const image = await convertToWebp(req.file.path);
+  db.query(
+    "UPDATE official_talent SET image_url = ? WHERE id = ?",
+    [image, id],
+    (err, result) => {
+      if (err) return res.status(500).json({ error: "Gagal memperbarui image" });
+      if (result.affectedRows === 0)
+        return res
+          .status(404)
+          .json({ error: "Image official talent tidak ditemukan" });
+      res
+        .status(200)
+        .json({ message: "Image official talent berhasil diperbarui", imageUrl: image });
+    },
+  );
+});
+
+app.put("/api/update-official-talent-desc/:id", (req, res) => {
+  const { image_url, nama, bio, followers_ig, followers_tiktok, followers_twitter, tinggi, berat, umur } = req.body;
+
+  if (image_url !== undefined && image_url !== null && image_url !== "") {
+    db.query(
+      "INSERT INTO official_talent_desc (image_url) VALUES (?)",
+      [image_url],
+      (err, result) => {
+        if (err) return res.status(500).json({ error: "Gagal menambahkan gambar" });
+        res
+          .status(201)
+          .json({ message: "Gambar berhasil ditambahkan", id: result.insertId });
+      }
+    );
+  }
+  if (nama !== undefined && nama !== null && nama !== "") {
+    db.query(
+      "INSERT INTO official_talent_desc (nama) VALUES (?)",
+      [nama],
+      (err, result) => {
+        if (err) return res.status(500).json({ error: "Gagal menambahkan nama" });
+        res
+          .status(201)
+          .json({ message: "Nama berhasil ditambahkan", id: result.insertId });
+      }
+    );
+  }
+  if (bio !== undefined && bio !== null && bio !== "") {
+    db.query(
+      "INSERT INTO official_talent_desc (bio) VALUES (?)",
+      [bio],
+      (err, result) => {
+        if (err) return res.status(500).json({ error: "Gagal menambahkan bio" });
+        res
+          .status(201)
+          .json({ message: "Bio berhasil ditambahkan", id: result.insertId });
+      }
+    );
+  }
+  if (followers_ig !== undefined && followers_ig !== null && followers_ig !== "") {
+    db.query(
+      "INSERT INTO official_talent_desc (followers_ig) VALUES (?)",
+      [followers_ig],
+      (err, result) => {
+        if (err) return res.status(500).json({ error: "Gagal menambahkan followers_ig" });
+        res
+          .status(201)
+          .json({ message: "Followers IG berhasil ditambahkan", id: result.insertId });
+      }
+    );
+  }
+  if (followers_tiktok !== undefined && followers_tiktok !== null && followers_tiktok !== "") {
+    db.query(
+      "INSERT INTO official_talent_desc (followers_tiktok) VALUES (?)",
+      [followers_tiktok],
+      (err, result) => {
+        if (err) return res.status(500).json({ error: "Gagal menambahkan followers_tiktok" });
+        res
+          .status(201)
+          .json({ message: "Followers TikTok berhasil ditambahkan", id: result.insertId });
+      }
+    );
+  }
+  if (followers_twitter !== undefined && followers_twitter !== null && followers_twitter !== "") {
+    db.query(
+      "INSERT INTO official_talent_desc (followers_twitter) VALUES (?)",
+      [followers_twitter],
+      (err, result) => {
+        if (err) return res.status(500).json({ error: "Gagal menambahkan followers_twitter" });
+        res
+          .status(201)
+          .json({ message: "Followers Twitter berhasil ditambahkan", id: result.insertId });
+      }
+    );
+  }
+  if (tinggi !== undefined && tinggi !== null && tinggi !== "") {
+    db.query(
+      "INSERT INTO official_talent_desc (tinggi) VALUES (?)",
+      [tinggi],
+      (err, result) => {
+        if (err) return res.status(500).json({ error: "Gagal menambahkan tinggi" });
+        res
+          .status(201)
+          .json({ message: "Tinggi berhasil ditambahkan", id: result.insertId });
+      }
+    );
+  }
+  if (berat !== undefined && berat !== null && berat !== "") {
+    db.query(
+      "INSERT INTO official_talent_desc (berat) VALUES (?)",
+      [berat],
+      (err, result) => {
+        if (err) return res.status(500).json({ error: "Gagal menambahkan berat" });
+        res
+          .status(201)
+          .json({ message: "Berat berhasil ditambahkan", id: result.insertId });
+      }
+    );
+  }
+  if (umur !== undefined && umur !== null && umur !== "") {
+    db.query(
+      "INSERT INTO official_talent_desc (umur) VALUES (?)",
+      [umur],
+      (err, result) => {
+        if (err) return res.status(500).json({ error: "Gagal menambahkan umur" });
+        res
+          .status(201)
+          .json({ message: "Umur berhasil ditambahkan", id: result.insertId });
+      }
+    );
+  }
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 // DELETE
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1031,6 +1215,22 @@ app.delete("/api/delete-logo/:id", (req, res) => {
     if (err) return res.status(500).json({ error: "Gagal menghapus logo" });
     res.status(200).json({ message: "Logo berhasil dihapus" });
   });
+});
+
+
+
+app.delete("/api/delete-official-talent/:id", (req, res) => {
+  await connection.beginTransaction();
+
+  try {
+    await connection.query("DELETE FROM official_talent WHERE id = ?", [req.params.id]);
+    await connection.query("DELETE FROM official_talent_desc WHERE id = ?", [req.params.id]);
+    await connection.commit();
+    res.status(200).json({ message: "Official talent berhasil dihapus" });
+  } catch (err) {
+    await connection.rollback();
+    res.status(500).json({ error: "Gagal menghapus official talent" });
+  }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
