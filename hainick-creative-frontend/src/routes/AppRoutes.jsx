@@ -10,7 +10,8 @@ import Login from "../pages/admin/Login";
 import AdminLayout from "../pages/admin/AdminLayout";
 import HomePanel from "../pages/admin/panel/HomePanel";
 import AboutPanel from "../pages/admin/panel/AboutPanel";
-import TalentPanel from "../pages/admin/panel/TalentPanel";
+import OfficialTalentPanel from "../pages/admin/panel/OfficialTalentPanel";
+import CreatorPlusPanel from "../pages/admin/panel/CreatorPlusPanel";
 import ServicePanel from "../pages/admin/panel/ServicePanel";
 import CreatorPanel from "../pages/admin/panel/CreatorPanel";
 import ActivityPanel from "../pages/admin/panel/ActivityPanel";
@@ -32,7 +33,8 @@ export default function AppRoutes() {
         <Route path="/admin" element={<AdminLayout />}>
           <Route index element={<HomePanel />} />
           <Route path="about" element={<AboutPanel />} />
-          <Route path="talent" element={<TalentPanel />} />
+          <Route path="officialTalent" element={<OfficialTalentPanel />} />
+          <Route path="creatorPlus" element={<CreatorPlusPanel />} />
           <Route path="service" element={<ServicePanel />} />
           <Route path="creator" element={<CreatorPanel />} />
           <Route path="activity" element={<ActivityPanel />} />

@@ -7,7 +7,8 @@ import { auth } from "../../utils/auth";
 const menuItems = [
   { label: "Home", path: "/admin", icon: "⌂" },
   { label: "About Us", path: "/admin/about", icon: "◎" },
-  { label: "Talent", path: "/admin/talent", icon: "★" },
+  { label: "Official Talent", path: "/admin/officialTalent", icon: "★" },
+  { label: "Creator+", path: "/admin/creatorPlus", icon: "+" },
   { label: "Creator", path: "/admin/creator", icon: "✦" },
   { label: "Activity", path: "/admin/activity", icon: "◉" },
   { label: "Testimony", path: "/admin/testimony", icon: "❝" },

@@ -3,7 +3,8 @@ import Header from "../../components/Header";
 import Footer from "../../components/Footer";
 import HomeSection from "./section/HomeSection";
 import AboutSection from "./section/AboutSection";
-import TalentSection from "./section/TalentSection";
+import OfficialTalentSection from "./section/OfficialTalentSection";
+import CreatorPlusSection from "./section/CreatorPlusSection";
 import ServiceSection from "./section/ServiceSection";
 import PricelistSection from "./section/PricelistSection";
 import ActivitySection from "./section/ActivitySection";
@@ -12,7 +13,6 @@ import ContactSection from "./section/ContactSection";
 import CreatorSection from "./section/CreatorSection";
 import LoadingScreen from "./section/LoadingScreen";
 
-// Sesuaikan nama file logo Hainick Anda
 import logoHainick from "../../storage/logo/logo512.png";
 
 const LandingPage = () => {
@@ -50,7 +50,8 @@ const LandingPage = () => {
       >
         <HomeSection />
         <AboutSection />
-        <TalentSection />
+        <OfficialTalentSection />
+        <CreatorPlusSection />
         <CreatorSection />
         <ServiceSection />
         <PricelistSection />

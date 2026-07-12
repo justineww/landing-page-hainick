@@ -452,7 +452,7 @@ const TalentCard = ({ talent, index, onEdit, onDelete }) => {
 };
 
 // ── Main Panel ────────────────────────────────────────────────────────────────
-const TalentPanel = () => {
+const CreatorPlusPanel = () => {
   const [creators, setCreators] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -1075,4 +1075,4 @@ const TalentPanel = () => {
   );
 };
 
-export default TalentPanel;
+export default CreatorPlusPanel;

@@ -30,7 +30,7 @@ const formatFollowers = (n) => {
   return String(num);
 };
 
-// ── Mapping: API response → TalentSection format ──────────────────────────────
+// ── Mapping: API response → CreatorPlusSection format ──────────────────────────────
 // Menangani dua kemungkinan nama field: followers_ig DAN followers_instagram
 const mapCreatorToTalent = (creator) => {
   // Debug: uncomment baris ini jika card masih tidak muncul
@@ -169,8 +169,8 @@ function SkeletonCard() {
   );
 }
 
-// ── TalentSection ──────────────────────────────────────────────────────────────
-export default function TalentSection() {
+// ── CreatorPlusSection ──────────────────────────────────────────────────────────────
+export default function CreatorPlusSection() {
   const [talents, setTalents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -354,11 +354,11 @@ export default function TalentSection() {
       `}</style>
 
       <section
-        id="talent"
+        id="creatorPlus"
         className="ts-root"
         style={{ scrollMarginTop: "80px" }}
       >
-        <h2 className="ts-title">Official Talent Hainick</h2>
+        <h2 className="ts-title">Creator+</h2>
 
         {error ? (
           <p className="ts-error">Gagal memuat data talent: {error}</p>

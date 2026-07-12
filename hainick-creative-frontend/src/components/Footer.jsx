@@ -38,11 +38,12 @@ const NAV_COLS = [
     { label: "Service", href: "#service" },
   ],
   [
-    { label: "Creator", href: "#creator" },
+    { label: "Official Talent", href: "#officialTalent" },
+    { label: "Creator+", href: "#creatorPlus" },
     { label: "Activity", href: "#activity" },
-    { label: "Pricelist", href: "#pricelist" },
   ],
   [
+    { label: "Pricelist", href: "#pricelist" },
     { label: "Testimony", href: "#testimony" },
     { label: "Contact Us", href: "#contact" },
   ],

@@ -23,7 +23,8 @@ const Header = () => {
   const navLinks = [
     { label: "Home", href: "#home" },
     { label: "About Us", href: "#about" },
-    { label: "Talent", href: "#talent" },
+    { label: "Official Talent", href: "#officialTalent" },
+    { label: "Creator+", href: "#creatorPlus" },
     { label: "Service", href: "#services" },
     { label: "Creator", href: "#creator" },
     { label: "Activity", href: "#activity" },
