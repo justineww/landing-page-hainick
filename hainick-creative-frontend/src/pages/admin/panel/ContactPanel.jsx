@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
+import { API_URL } from "../../../utils/api";
 
-const BASE_URL = "http://localhost:8000";
-const API = `${BASE_URL}/api/contact`;
-const UPDATE_API = `${BASE_URL}/api/update-contact`;
-const CONTACT_FORM_API = `${BASE_URL}/api/contact-form`;
+const API = `${API_URL}/api/contact`;
+const UPDATE_API = `${API_URL}/api/update-contact`;
+const CONTACT_FORM_API = `${API_URL}/api/contact-form`;
 
 async function putFormData(url, payload) {
   const formData = new FormData();

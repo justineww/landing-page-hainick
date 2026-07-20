@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import hainickLogo from "../../storage/logo/hainick_logo.png";
 import { auth } from "../../utils/auth";
+import { API_URL } from "../../utils/api";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -24,7 +25,7 @@ const Login = () => {
     setLoading(true);
     try {
       const res = await fetch(
-        `http://localhost:8000/api/login?username=${encodeURIComponent(form.username)}&password=${encodeURIComponent(form.password)}`,
+        `${API_URL}/login?username=${encodeURIComponent(form.username)}&password=${encodeURIComponent(form.password)}`,
       );
       const data = await res.json();
       if (res.ok) {

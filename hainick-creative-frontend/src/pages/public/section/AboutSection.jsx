@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-
-const BASE_URL = "http://localhost:8000";
+import { API_URL, BASE_URL } from "../../../utils/api";
 
 // ── Static Data ───────────────────────────────────────────────────────────────
 const ABOUT_DATA = {
@@ -78,7 +77,7 @@ export default function AboutSection() {
   useEffect(() => {
     const fetchVideo = async () => {
       try {
-        const res = await fetch(`${BASE_URL}/api/hainick-assets`);
+        const res = await fetch(`${API_URL}/hainick-assets`);
         if (!res.ok) throw new Error("Gagal fetch assets");
         const data = await res.json();
         const showcase = data.find(

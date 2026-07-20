@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { API_URL } from "../../../utils/api";
 
 const API = "http://localhost:8000/api";
 
@@ -46,7 +47,7 @@ const ActivityPanel = () => {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API}/updates-section`);
+      const res = await fetch(`${API_URL}/updates-section`);
       const data = await res.json();
       const rows = Array.isArray(data) ? data : [];
       setSavedRows(rows);
@@ -171,7 +172,7 @@ const ActivityPanel = () => {
 
       for (const pr of changed) {
         const res = await fetch(
-          `${API}/update-updates-section-status/${pr.id}`,
+          `${API_URL}/update-updates-section-status/${pr.id}`,
           {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
@@ -203,7 +204,7 @@ const ActivityPanel = () => {
   const handleDelete = async (row) => {
     if (!window.confirm(`Hapus activity ini (ID: ${row.id})?`)) return;
     try {
-      const res = await fetch(`${API}/delete-updates-section/${row.id}`, {
+      const res = await fetch(`${API_URL}/delete-updates-section/${row.id}`, {
         method: "DELETE",
       });
 
@@ -1054,7 +1055,7 @@ const ActivityModal = ({
           fd.append("image", imageFile);
           // Gunakan endpoint baru by ID (lihat catatan backend di bawah)
           const res = await fetch(
-            `${API}/update-updates-section-image-by-id/${data.id}`,
+            `${API_URL}/update-updates-section-image-by-id/${data.id}`,
             {
               method: "PUT",
               body: fd,
@@ -1065,14 +1066,17 @@ const ActivityModal = ({
             const fd2 = new FormData();
             fd2.append("image", imageFile);
             fd2.append("image_type", imageType);
-            await fetch(`${API}/update-updates-section-image/${imageType}`, {
-              method: "PUT",
-              body: fd2,
-            });
+            await fetch(
+              `${API_URL}/update-updates-section-image/${imageType}`,
+              {
+                method: "PUT",
+                body: fd2,
+              },
+            );
           }
         }
         if (description !== (data?.description || "")) {
-          await fetch(`${API}/update-updates-section-description`, {
+          await fetch(`${API_URL}/update-updates-section-description`, {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ description, image_type: imageType }),
@@ -1090,7 +1094,7 @@ const ActivityModal = ({
         fd.append("description", description);
         // FIX: new record selalu is_active=0, biarkan user drag ke slot
         fd.append("is_active", "0");
-        await fetch(`${API}/create-updates-section-image`, {
+        await fetch(`${API_URL}/create-updates-section-image`, {
           method: "POST",
           body: fd,
         });

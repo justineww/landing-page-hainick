@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-
-const BASE_URL = "http://localhost:8000";
+import { API_URL } from "../../../utils/api";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 // Format follower menjadi gaya Indonesia (koma sebagai desimal), misal 15700 -> "15,7K"
@@ -76,7 +75,7 @@ const ChevronRightIcon = () => (
 // ── Talent Photo Card ─────────────────────────────────────────────────────────
 const TalentPhotoCard = ({ talent, onClick }) => {
   const [imgError, setImgError] = useState(false);
-  const photo = talent.image_url ? `${BASE_URL}${talent.image_url}` : null;
+  const photo = talent.image_url ? `${API_URL}${talent.image_url}` : null;
   const showFallback = !photo || imgError;
 
   return (
@@ -117,7 +116,7 @@ const OfficialTalentModal = ({ talentId, thumbnailUrl, onClose }) => {
     let active = true;
     setLoading(true);
     setError("");
-    fetch(`${BASE_URL}/api/load-official-talent-desc/${talentId}`, {
+    fetch(`${API_URL}/load-official-talent-desc/${talentId}`, {
       method: "POST",
     })
       .then((res) => {
@@ -154,7 +153,7 @@ const OfficialTalentModal = ({ talentId, thumbnailUrl, onClose }) => {
     };
   }, [onClose]);
 
-  const photo = desc?.image_url ? `${BASE_URL}${desc.image_url}` : thumbnailUrl;
+  const photo = desc?.image_url ? `${API_URL}${desc.image_url}` : thumbnailUrl;
   const hasPhysical = desc?.tinggi || desc?.berat || desc?.umur;
 
   return (
@@ -266,7 +265,7 @@ export default function OfficialTalentSection() {
   const fetchTalents = () => {
     setLoading(true);
     setError("");
-    fetch(`${BASE_URL}/api/load-official-talent`, { method: "POST" })
+    fetch(`${API_URL}/load-official-talent`, { method: "POST" })
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
@@ -622,7 +621,7 @@ export default function OfficialTalentSection() {
         <OfficialTalentModal
           talentId={selected.id}
           thumbnailUrl={
-            selected.image_url ? `${BASE_URL}${selected.image_url}` : null
+            selected.image_url ? `${API_URL}${selected.image_url}` : null
           }
           onClose={() => setSelected(null)}
         />

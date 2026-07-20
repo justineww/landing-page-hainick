@@ -1,14 +1,6 @@
 import { useState, useEffect } from "react";
+import { API_URL, BASE_URL } from "../../../utils/api";
 
-const BASE_URL = "http://localhost:8000";
-
-// ── Modal Tambah / Edit Talent ────────────────────────────────────────────────
-// Menggabungkan 2 langkah backend jadi 1 form:
-//  1. Upload foto  -> POST /api/create-official-talent (mode tambah)
-//                     PUT  /api/update-official-talent/:id (mode edit, jika foto diganti)
-//  2. Simpan detail -> PUT /api/update-official-talent-desc/:id
-// Baris di official_talent_desc sudah otomatis dibuat oleh trigger saat foto
-// pertama kali diupload, jadi di sini kita hanya perlu UPDATE, tidak perlu CREATE.
 const TalentModal = ({ mode, talent, onClose, onSaved }) => {
   const isEdit = mode === "edit";
 
@@ -24,7 +16,7 @@ const TalentModal = ({ mode, talent, onClose, onSaved }) => {
   });
   const [imageFile, setImageFile] = useState(null);
   const [preview, setPreview] = useState(
-    talent?.image_url ? `${BASE_URL}${talent.image_url}` : null,
+    talent?.image_url ? `${API_URL}${talent.image_url}` : null,
   );
   const [prefillLoading, setPrefillLoading] = useState(isEdit);
   const [loading, setLoading] = useState(false);
@@ -35,7 +27,7 @@ const TalentModal = ({ mode, talent, onClose, onSaved }) => {
     if (!isEdit || !talent?.id) return;
     let active = true;
     setPrefillLoading(true);
-    fetch(`${BASE_URL}/api/load-official-talent-desc/${talent.id}`, {
+    fetch(`${API_URL}/load-official-talent-desc/${talent.id}`, {
       method: "POST",
     })
       .then((res) => {
@@ -96,7 +88,7 @@ const TalentModal = ({ mode, talent, onClose, onSaved }) => {
       if (!isEdit) {
         const fd = new FormData();
         fd.append("image", imageFile);
-        const res = await fetch(`${BASE_URL}/api/create-official-talent`, {
+        const res = await fetch(`${API_URL}/create-official-talent`, {
           method: "POST",
           body: fd,
         });
@@ -107,7 +99,7 @@ const TalentModal = ({ mode, talent, onClose, onSaved }) => {
         const fd = new FormData();
         fd.append("image", imageFile);
         const res = await fetch(
-          `${BASE_URL}/api/update-official-talent/${talentId}`,
+          `${API_URL}/update-official-talent/${talentId}`,
           {
             method: "PUT",
             body: fd,
@@ -118,7 +110,7 @@ const TalentModal = ({ mode, talent, onClose, onSaved }) => {
 
       // Langkah 2: simpan detail talent (nama, bio, followers, dst)
       const descRes = await fetch(
-        `${BASE_URL}/api/update-official-talent-desc/${talentId}`,
+        `${API_URL}/update-official-talent-desc/${talentId}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -301,7 +293,7 @@ const DeleteConfirm = ({ talent, desc, onClose, onDeleted }) => {
     setError("");
     try {
       const res = await fetch(
-        `${BASE_URL}/api/delete-official-talent/${talent.id}`,
+        `${API_URL}/delete-official-talent/${talent.id}`,
         {
           method: "DELETE",
         },
@@ -353,7 +345,7 @@ const DeleteConfirm = ({ talent, desc, onClose, onDeleted }) => {
 // ── Talent Card (admin grid) ──────────────────────────────────────────────────
 const AdminTalentCard = ({ talent, desc, index, onEdit, onDelete }) => {
   const [imgError, setImgError] = useState(false);
-  const photo = talent.image_url ? `${BASE_URL}${talent.image_url}` : null;
+  const photo = talent.image_url ? `${API_URL}${talent.image_url}` : null;
   const showFallback = !photo || imgError;
   const name = desc?.nama?.trim();
 
@@ -417,7 +409,7 @@ const OfficialTalentPanel = () => {
   const fetchTalents = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${BASE_URL}/api/load-official-talent`, {
+      const res = await fetch(`${API_URL}/load-official-talent`, {
         method: "POST",
       });
       const data = await res.json();
@@ -429,7 +421,7 @@ const OfficialTalentPanel = () => {
         list.map(async (t) => {
           try {
             const r = await fetch(
-              `${BASE_URL}/api/load-official-talent-desc/${t.id}`,
+              `${API_URL}/load-official-talent-desc/${t.id}`,
               {
                 method: "POST",
               },

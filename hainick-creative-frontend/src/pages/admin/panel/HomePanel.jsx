@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { API_URL, BASE_URL } from "../../../utils/api";
 
 const HomePanel = () => {
   const [heroUrl, setHeroUrl] = useState(null);
@@ -9,13 +10,11 @@ const HomePanel = () => {
 
   const fetchHero = () => {
     setLoading(true);
-    fetch("http://localhost:8000/api/hainick-assets")
+    fetch(`${API_URL}/hainick-assets`)
       .then((res) => res.json())
       .then((data) => {
         const hero = data.find((item) => item.image_type === "hero_banner");
-        setHeroUrl(
-          hero?.image_url ? `http://localhost:8000${hero.image_url}` : null,
-        );
+        setHeroUrl(hero?.image_url ? `${BASE_URL}${hero.image_url}` : null);
       })
       .catch(() =>
         setMessage({ type: "error", text: "Gagal memuat data dari server." }),
@@ -45,8 +44,8 @@ const HomePanel = () => {
 
     try {
       const url = heroUrl
-        ? "http://localhost:8000/api/update-hainick-assets/hero_banner"
-        : "http://localhost:8000/api/create-hainick-assets";
+        ? `${API_URL}/update-hainick-assets/hero_banner`
+        : `${API_URL}/create-hainick-assets`;
 
       const method = heroUrl ? "PUT" : "POST";
 

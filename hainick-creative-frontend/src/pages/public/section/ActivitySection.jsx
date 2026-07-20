@@ -6,8 +6,7 @@ import avatarD from "../../../storage/picture/d.png";
 import avatarE from "../../../storage/picture/e.png";
 import avatarF from "../../../storage/picture/f.png";
 import avatarCenter from "../../../storage/picture/center.png";
-
-const API = "http://localhost:8000/api";
+import { API_URL } from "../../../utils/api";
 
 // ── Interval polling (ms) ─────────────────────────────────────────────────────
 const POLL_INTERVAL = 5000;
@@ -64,7 +63,7 @@ export default function ActivitySection({ title = "Hainick Update" }) {
   const fetchData = useCallback(async (isInitial = false) => {
     if (isInitial) setLoading(true);
     try {
-      const res = await fetch(`${API}/updates-section`);
+      const res = await fetch(`${API_URL}/updates-section`);
       const data = await res.json();
       if (!isMounted.current) return;
 

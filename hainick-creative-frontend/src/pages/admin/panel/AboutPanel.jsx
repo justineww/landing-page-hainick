@@ -1,7 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-
-// TODO: Sesuaikan BASE_URL jika port backend berbeda
-const BASE_URL = "http://localhost:8000";
+import { API_URL } from "../../../utils/api";
 
 const AboutPanel = () => {
   const [videoUrl, setVideoUrl] = useState(null);
@@ -19,15 +17,15 @@ const AboutPanel = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${BASE_URL}/api/hainick-assets`);
+      const res = await fetch(`${API_URL}/hainick-assets`);
       if (!res.ok) throw new Error("Gagal mengambil data dari server");
       const data = await res.json();
       const showcase = data.find(
         (item) => item.image_type === "talent_showcase",
       );
-      setVideoUrl(showcase ? `${BASE_URL}${showcase.image_url}` : null);
+      setVideoUrl(showcase ? `${API_URL}${showcase.image_url}` : null);
     } catch (err) {
-      setError("Gagal memuat data. Pastikan server berjalan di " + BASE_URL);
+      setError("Gagal memuat data. Pastikan server berjalan di " + API_URL);
     } finally {
       setLoading(false);
     }
@@ -78,7 +76,7 @@ const AboutPanel = () => {
 
     try {
       // Cek apakah sudah ada talent_showcase
-      const checkRes = await fetch(`${BASE_URL}/api/hainick-assets`);
+      const checkRes = await fetch(`${API_URL}/hainick-assets`);
       const assets = await checkRes.json();
       const exists = assets.find(
         (item) => item.image_type === "talent_showcase",
@@ -87,17 +85,14 @@ const AboutPanel = () => {
       let res;
       if (exists) {
         // UPDATE — PUT /api/update-hainick-assets/:image_type
-        res = await fetch(
-          `${BASE_URL}/api/update-hainick-assets/talent_showcase`,
-          {
-            method: "PUT",
-            body: formData,
-          },
-        );
+        res = await fetch(`${API_URL}/update-hainick-assets/talent_showcase`, {
+          method: "PUT",
+          body: formData,
+        });
       } else {
         // CREATE — POST /api/create-hainick-assets
         formData.append("image_type", "talent_showcase");
-        res = await fetch(`${BASE_URL}/api/create-hainick-assets`, {
+        res = await fetch(`${API_URL}/create-hainick-assets`, {
           method: "POST",
           body: formData,
         });

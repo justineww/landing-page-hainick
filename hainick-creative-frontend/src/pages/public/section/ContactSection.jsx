@@ -4,9 +4,7 @@ import instagramIcon from "../../../storage/icon/instagram.png";
 import mailIcon from "../../../storage/icon/mail.png";
 import telephoneIcon from "../../../storage/icon/telephone.png";
 import hainickLogo from "../../../storage/logo/hainick_logo.png";
-
-const BASE_URL = "http://localhost:8000";
-
+import { API_URL } from "../../../utils/api";
 // ── Icon components ───────────────────────────────────────────────────────────
 const InstagramIcon = () => (
   <img
@@ -117,7 +115,7 @@ function ContactForm() {
     setErrorMsg("");
 
     try {
-      const res = await fetch(`${BASE_URL}/api/create-contact-form`, {
+      const res = await fetch(`${API_URL}/create-contact-form`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -219,7 +217,7 @@ export default function ContactSection() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${BASE_URL}/api/contact`)
+    fetch(`${API_URL}/contact`)
       .then((r) => {
         if (!r.ok) throw new Error("Gagal fetch contacts");
         return r.json();

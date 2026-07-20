@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { API_URL, BASE_URL } from "../../../utils/api";
 
 const FALLBACK_IMG =
   "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=1400&q=90";
@@ -7,12 +8,12 @@ const HomeSection = () => {
   const [heroImage, setHeroImage] = useState(FALLBACK_IMG);
 
   useEffect(() => {
-    fetch("http://localhost:8000/api/hainick-assets")
+    fetch(`${API_URL}/hainick-assets`)
       .then((res) => res.json())
       .then((data) => {
         const hero = data.find((item) => item.image_type === "hero_banner");
         if (hero?.image_url) {
-          setHeroImage(`http://localhost:8000${hero.image_url}`);
+          setHeroImage(`${BASE_URL}${hero.image_url}`);
         }
       })
       .catch((err) => console.error("Gagal memuat hero banner:", err));

@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useMemo, memo } from "react";
-
-const BASE_URL = "http://localhost:8000";
+import { API_URL } from "../../../utils/api";
 
 // ── Konstanta statis ──────────────────────────────────────────────────────────
 const CARD_LAYOUT = [
@@ -52,23 +51,6 @@ const ANIM_DELAY_MAP = CARD_LAYOUT.reduce((acc, card) => {
   return acc;
 }, {});
 
-// ── CSS hover murni — di-inject sekali, nol React re-render saat hover ───────
-//
-// KENAPA ini lebih cepat dari useState hover:
-//  • useState hover  → mouseenter → setHovered(true) → React reconcile → commit DOM
-//    Dengan 20 kartu aktif, setiap gerakan mouse bisa trigger banyak reconcile sekaligus.
-//  • CSS :hover      → mouseenter → browser composite layer langsung
-//    Tidak menyentuh React sama sekali. GPU handle langsung.
-//
-// KENAPA filter grayscale di sini dan bukan inline style:
-//  • filter adalah GPU-accelerated tapi tetap butuh paint pass kalau di-set via JS.
-//  • Kalau di CSS, browser tahu sejak awal bahwa element ini punya filter transition
-//    dan bisa promote ke composite layer dari awal — zero paint saat hover.
-//
-// KENAPA akan-change: transform, opacity (bukan filter):
-//  • filter sudah promoted otomatis karena ada di CSS transition.
-//  • transform + opacity adalah dua property yang paling berubah (animasi masuk + hover lift).
-//  • Menambah filter ke will-change justru memboroskan VRAM untuk 20 layer sekaligus.
 const CARD_CSS = `
   .tc {
     width: 100%;
@@ -145,7 +127,7 @@ const TalentCard = memo(function TalentCard({
     >
       {imageUrl ? (
         <img
-          src={`${BASE_URL}${imageUrl}`}
+          src={`${API_URL}${imageUrl}`}
           alt={`Talent ${cardId}`}
           loading="lazy"
           decoding="async"
@@ -300,7 +282,7 @@ export default function CreatorsSection() {
 
     (async () => {
       try {
-        const res = await fetch(`${BASE_URL}/api/creators-photocard`, {
+        const res = await fetch(`${API_URL}/creators-photocard`, {
           signal: ctrl.signal,
         });
         if (!res.ok) return;
@@ -318,10 +300,9 @@ export default function CreatorsSection() {
 
     (async () => {
       try {
-        const res = await fetch(
-          `${BASE_URL}/api/creators-photocard-statistics`,
-          { signal: ctrl.signal },
-        );
+        const res = await fetch(`${API_URL}/creators-photocard-statistics`, {
+          signal: ctrl.signal,
+        });
         if (!res.ok) return;
         const data = await res.json();
         const row = Array.isArray(data) ? data[0] : data;

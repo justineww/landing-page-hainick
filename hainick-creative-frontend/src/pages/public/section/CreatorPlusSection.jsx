@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
-
-const BASE_URL = "http://localhost:8000";
+import { API_URL } from "../../../utils/api";
 
 // ── Icons ─────────────────────────────────────────────────────────────────────
 const IGIcon = () => (
@@ -64,7 +63,7 @@ const mapCreatorToTalent = (creator) => {
   return {
     id: creator.id,
     name: creator.name,
-    photo: creator.profile_image ? `${BASE_URL}${creator.profile_image}` : null,
+    photo: creator.profile_image ? `${API_URL}${creator.profile_image}` : null,
     categories: creator.roles
       ? creator.roles
           .split(",")
@@ -176,7 +175,7 @@ export default function CreatorPlusSection() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetch(`${BASE_URL}/api/creators`)
+    fetch(`${API_URL}/creators`)
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();

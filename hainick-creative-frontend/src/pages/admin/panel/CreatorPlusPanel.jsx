@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-
-const BASE_URL = "http://localhost:8000";
+import { API_URL } from "../../../utils/api";
 
 const ROLE_OPTIONS = [
   "Actor",
@@ -174,7 +173,7 @@ const TalentModal = ({ mode, talent, onClose, onSaved }) => {
   const [selectedRoles, setSelectedRoles] = useState(parseRoles(talent?.roles));
   const [imageFile, setImageFile] = useState(null);
   const [preview, setPreview] = useState(
-    talent?.profile_image ? `${BASE_URL}${talent.profile_image}` : null,
+    talent?.profile_image ? `${API_URL}${talent.profile_image}` : null,
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -212,8 +211,8 @@ const TalentModal = ({ mode, talent, onClose, onSaved }) => {
 
     try {
       const url = isEdit
-        ? `${BASE_URL}/api/update-creators/${talent.id}`
-        : `${BASE_URL}/api/create-creators`;
+        ? `${API_URL}/update-creators/${talent.id}`
+        : `${API_URL}/create-creators`;
       const method = isEdit ? "PUT" : "POST";
       const res = await fetch(url, { method, body: fd });
       if (!res.ok) throw new Error("Gagal menyimpan data");
@@ -334,7 +333,7 @@ const DeleteConfirm = ({ talent, onClose, onDeleted }) => {
   const handleDelete = async () => {
     setLoading(true);
     try {
-      await fetch(`${BASE_URL}/api/delete-creators/${talent.id}`, {
+      await fetch(`${API_URL}/delete-creators/${talent.id}`, {
         method: "DELETE",
       });
       onDeleted();
@@ -382,7 +381,7 @@ const TalentCard = ({ talent, index, onEdit, onDelete }) => {
     : [];
 
   const imgSrc = talent.profile_image
-    ? `${BASE_URL}${talent.profile_image}`
+    ? `${API_URL}${talent.profile_image}`
     : null;
 
   return (
@@ -461,7 +460,7 @@ const CreatorPlusPanel = () => {
   const fetchCreators = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${BASE_URL}/api/creators`);
+      const res = await fetch(`${API_URL}/creators`);
       const data = await res.json();
       setCreators(Array.isArray(data) ? data : []);
     } catch (err) {

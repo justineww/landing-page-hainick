@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef } from "react";
-
-const API = "http://localhost:8000";
+import { API_URL } from "../../../utils/api";
 
 const fmtPhoto = (url) =>
-  url ? (url.startsWith("http") ? url : `${API}${url}`) : null;
+  url ? (url.startsWith("http") ? url : `${API_URL}${url}`) : null;
 
 // ─── Modal Component ───────────────────────────────────────────────────────
 function Modal({ title, onClose, children }) {
@@ -145,7 +144,7 @@ export const TestimonyPanel = ({ onDataChange }) => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API}/api/testimonials`);
+      const res = await fetch(`${API_URL}/testimonials`);
       const json = await res.json();
       const cleanData = Array.isArray(json) ? json : [];
       setData(cleanData);
@@ -161,7 +160,7 @@ export const TestimonyPanel = ({ onDataChange }) => {
   const fetchLogos = async () => {
     setLogoLoading(true);
     try {
-      const res = await fetch(`${API}/api/load-logo`, { method: "POST" });
+      const res = await fetch(`${API_URL}/load-logo`, { method: "POST" });
       const json = await res.json();
       setLogos(Array.isArray(json) ? json : []);
     } catch {
@@ -217,8 +216,8 @@ export const TestimonyPanel = ({ onDataChange }) => {
     try {
       const url =
         modal === "add"
-          ? `${API}/api/create-testimonials`
-          : `${API}/api/update-testimonials/${selected.id}`;
+          ? `${API_URL}/create-testimonials`
+          : `${API_URL}/update-testimonials/${selected.id}`;
       const method = modal === "add" ? "POST" : "PUT";
       const res = await fetch(url, { method, body: fd });
       if (!res.ok) throw new Error();
@@ -238,7 +237,7 @@ export const TestimonyPanel = ({ onDataChange }) => {
   const handleDelete = async (id) => {
     if (!window.confirm("Yakin hapus testimony ini?")) return;
     try {
-      const res = await fetch(`${API}/api/delete-testimonials/${id}`, {
+      const res = await fetch(`${API_URL}/delete-testimonials/${id}`, {
         method: "DELETE",
       });
       if (!res.ok) throw new Error();
@@ -270,7 +269,7 @@ export const TestimonyPanel = ({ onDataChange }) => {
     const fd = new FormData();
     fd.append("logo", logoFile);
     try {
-      const res = await fetch(`${API}/api/create-logo`, {
+      const res = await fetch(`${API_URL}/create-logo`, {
         method: "POST",
         body: fd,
       });
@@ -288,7 +287,7 @@ export const TestimonyPanel = ({ onDataChange }) => {
   const handleLogoDelete = async (id) => {
     if (!window.confirm("Yakin hapus logo ini?")) return;
     try {
-      const res = await fetch(`${API}/api/delete-logo/${id}`, {
+      const res = await fetch(`${API_URL}/delete-logo/${id}`, {
         method: "DELETE",
       });
       if (!res.ok) throw new Error();
@@ -1191,7 +1190,7 @@ export default function TestimonySection() {
 
   const loadPublicTestimonials = async () => {
     try {
-      const res = await fetch(`${API}/api/testimonials`);
+      const res = await fetch(`${API_URL}/testimonials`);
       const json = await res.json();
       setTestimonials(Array.isArray(json) ? json : []);
     } catch (err) {
@@ -1203,7 +1202,7 @@ export default function TestimonySection() {
 
   const loadPublicLogos = async () => {
     try {
-      const res = await fetch(`${API}/api/load-logo`, { method: "POST" });
+      const res = await fetch(`${API_URL}/load-logo`, { method: "POST" });
       const json = await res.json();
       setLogos(Array.isArray(json) ? json : []);
     } catch (err) {

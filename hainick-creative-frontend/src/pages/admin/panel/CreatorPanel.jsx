@@ -1,10 +1,5 @@
-// CreatorPanel.jsx
-// Mengelola: (1) 20 foto photocard — hanya UPDATE gambar, tanpa hapus
-//            (2) statistik creators/brand/projects — hanya EDIT teks
-
 import { useState, useEffect, useRef } from "react";
-
-const BASE_URL = "http://localhost:8000";
+import { API_URL } from "../../../utils/api";
 
 const CARD_LAYOUT = [
   { id: 1, col: 0, row: 0 },
@@ -41,7 +36,7 @@ function PhotoCardItem({ card, onUpdated }) {
   const displayPreview = pendingPreview
     ? pendingPreview
     : card.image_url
-      ? `${BASE_URL}${card.image_url}`
+      ? `${API_URL}${card.image_url}`
       : null;
 
   const hasPending = !!pendingFile;
@@ -74,7 +69,7 @@ function PhotoCardItem({ card, onUpdated }) {
     formData.append("image", pendingFile);
     try {
       const res = await fetch(
-        `${BASE_URL}/api/update-creators-photocard/${card.id}`,
+        `${API_URL}/api/update-creators-photocard/${card.id}`,
         { method: "PUT", body: formData },
       );
       if (!res.ok) throw new Error("Server error");
@@ -309,7 +304,7 @@ const CreatorPanel = () => {
   const fetchAll = async () => {
     setPageLoading(true);
     try {
-      const resCards = await fetch(`${BASE_URL}/api/creators-photocard`);
+      const resCards = await fetch(`${API_URL}/api/creators-photocard`);
       if (resCards.ok) {
         const data = await resCards.json();
         setCards((prev) =>
@@ -324,7 +319,7 @@ const CreatorPanel = () => {
       }
 
       const resStats = await fetch(
-        `${BASE_URL}/api/creators-photocard-statistics`,
+        `${API_URL}/api/creators-photocard-statistics`,
       );
       if (resStats.ok) {
         const data = await resStats.json();
@@ -358,7 +353,7 @@ const CreatorPanel = () => {
     setSeedLoading(true);
     setSeedMsg(null);
     try {
-      const res = await fetch(`${BASE_URL}/api/seed-creators-photocard`, {
+      const res = await fetch(`${API_URL}/api/seed-creators-photocard`, {
         method: "POST",
       });
       if (!res.ok) throw new Error("Gagal seed");
@@ -392,7 +387,7 @@ const CreatorPanel = () => {
     setStatsMsg(null);
     try {
       const res = await fetch(
-        `${BASE_URL}/api/update-creators-photocard-statistics`,
+        `${API_URL}/api/update-creators-photocard-statistics`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
